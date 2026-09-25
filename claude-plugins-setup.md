@@ -57,6 +57,7 @@ exec bash
 | `"pypi:nmem-cli"` | nowledge-mem 的 hook 和命令 |
 | `"npm:openskills"` | 第 4 节安装第三方技能 |
 | `"github:Xuanwo/xurl"` | xurl 技能调用的 `xurl` 命令 |
+| `"github:redhat-et/ripwire"` | ripwire CLI，压缩包里带有第 4 节安装的 ripwire 技能 |
 | `pnpm` | 可选，modern-web-guidance 有 pnpm 时用 `pnpx` |
 | `http:coderabbit` | coderabbit CLI（下面的 URL 为 linux-x64 包） |
 
@@ -83,6 +84,7 @@ rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 "pypi:nmem-cli" = "latest"
 "npm:openskills" = "latest"
 "github:Xuanwo/xurl" = "latest"
+"github:redhat-et/ripwire" = "latest"
 
 [tools."http:coderabbit"]
 version = "latest"
@@ -213,7 +215,7 @@ claude plugin list
 
 ## 4. 第三方技能
 
-技能均安装上游当时的最新版本。ninehills 维护的技能用其仓库自带的 Python 脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
+技能均安装上游当时的最新版本。ninehills 维护的技能用其仓库自带的 Python 脚本安装；ripwire 的技能用 ripwire 发布包自带的安装脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
 
 ### 4.1 ninehills 技能（官方 skills-manager 脚本）
 
@@ -233,9 +235,19 @@ git -C ~/git/ninehills-skills pull
 python3 ~/git/ninehills-skills/skills-manager scenarios install Common
 ```
 
-同一仓库中的 tech-doc-style-chinese 不属于任何场景，用 openskills 安装（见 4.2）。
+同一仓库中的 tech-doc-style-chinese 不属于任何场景，用 openskills 安装（见 4.3）。
 
-### 4.2 其余技能（openskills）
+### 4.2 ripwire 技能（官方 skills/install.sh）
+
+mise 安装的 ripwire 压缩包里带有 `skills/` 目录和 `skills/install.sh`。脚本把每个 `ripwire-*` 技能软链接进 `~/.claude/skills`，链接目标是脚本所在的目录。通过 mise 的 `latest` 路径执行，链接就指向 `latest`，`mise upgrade` 之后仍然有效。`ripwire-opt-remarks` 只用于开发 ripwire 本身，脚本默认跳过。
+
+```bash
+bash ~/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/install.sh
+```
+
+ripwire 升级后技能列表可能变化，重新执行同一条命令即可：新技能会建立链接，上游删掉的技能会被清理。
+
+### 4.3 其余技能（openskills）
 
 最后一项是 GitHub Gist 上的 japanese-tech-writing（日语技术文档写作规范），openskills 直接用 gist 的 git 地址安装，技能目录名取自 SKILL.md 的 `name`。
 
@@ -280,7 +292,7 @@ openskills update
 gh extension install github/gh-stack
 ```
 
-### 4.3 重新加载
+### 4.4 重新加载
 
 在已经运行的 claude 会话里执行 `/reload-skills`，新装的技能就能用；新开的会话会自动加载。
 
