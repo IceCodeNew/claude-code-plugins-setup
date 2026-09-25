@@ -10,53 +10,6 @@
 
 ---
 
-## 0. 插件清单
-
-| 插件 | 版本 | 状态 | 类型 | 外部依赖 |
-|---|---|---|---|---|
-| claude-code-setup | 1.0.0 | 启用 | skill | 无 |
-| claude-md-management | 1.0.0 | 启用 | command + skill | 无 |
-| claude-security | 0.11.0 | **禁用** | skill + agent + hook | python3 ≥ 3.9、git |
-| cloudflare | 1.0.0 | 启用 | 远程 MCP（OAuth）+ skill | 可选：wrangler、cloudflared；turnstile 脚本要 jq、python3、curl |
-| code-review | ad30d62cd52a | 启用 | command | gh（需登录）、git |
-| code-simplifier | 1.0.0 | 启用 | agent | 无 |
-| coderabbit | 1.1.1 | 启用 | command + skill + agent | coderabbit CLI（需登录）、gh、jq、git |
-| commit-commands | ad30d62cd52a | 启用 | command | git、gh（需登录） |
-| context7 | ad30d62cd52a | 启用 | 远程 MCP | 无；`CONTEXT7_API_KEY` 可选 |
-| feature-dev | ad30d62cd52a | 启用 | command + agent | 无（正文提到 git） |
-| firecrawl | 1.0.9 | 启用 | skill + command | firecrawl CLI（需登录）、node |
-| github | ad30d62cd52a | 启用 | 远程 MCP | 环境变量 `GITHUB_PERSONAL_ACCESS_TOKEN` |
-| gopls-lsp | 1.0.0 | 启用 | LSP | gopls、go |
-| hookify | ad30d62cd52a | 启用 | hook + command | python3（只用标准库） |
-| linear | ad30d62cd52a | 启用 | 远程 MCP（OAuth） | 无 |
-| modern-go-guidelines（goland-claude-marketplace） | 1.1.1 | 启用 | skill（use-modern-go） | 无 |
-| modern-web-guidance | 0.0.190 | **禁用** | skill | node ≥ 20、npx 或 pnpx、网络 |
-| nowledge-mem | 0.7.24 | 启用 | hook + skill + command | nmem CLI（PyPI 包 `nmem-cli`）、python3 |
-| pr-review-toolkit | ad30d62cd52a | 启用 | command + agent | git、gh |
-| pydantic（pydantic-skills） | 0.1.0 | 启用 | skill | 无 |
-| pyright-lsp | 1.0.0 | 启用 | LSP | pyright-langserver（装在共享 uv venv）、node |
-| ralph-loop | 1.0.0 | 启用 | hook + command | bash、jq、perl |
-| redis-development | 1.4.0 | **禁用** | skill | 无 |
-| remember | 0.33.0 | 启用 | hook + skill | bash、python3 ≥ 3.9、jq、claude CLI |
-| rust-analyzer-lsp | 1.0.0 | 启用 | LSP | rust-analyzer、cargo，以及 **rust-src 组件** |
-| security-guidance | 2.0.8 | 启用 | hook | python3.13 + claude-agent-sdk（共享 uv venv）、git、claude CLI |
-| session-report | ad30d62cd52a | 启用 | skill | node |
-| skill-creator | ad30d62cd52a | 启用 | skill | `python` 命令 + PyYAML（共享 uv venv）、claude CLI；可选 lsof |
-| superpowers | 6.4.1 | 启用 | skill + hook | bash、node、git；可选 graphviz、gh |
-| telegram | 0.0.7 | 启用 | 本地 stdio MCP | bun、`TELEGRAM_BOT_TOKEN` |
-| typescript-lsp | 1.0.0 | 启用 | LSP | typescript-language-server、node，以及 **typescript 6.x** |
-
-marketplace：
-
-| 名称 | 来源 |
-|---|---|
-| claude-plugins-official | GitHub `anthropics/claude-plugins-official` |
-| nowledge-community | git `https://github.com/nowledge-co/community.git`（只有 nowledge-mem 来自这里） |
-| pydantic-skills | GitHub `pydantic/skills`（只装 pydantic） |
-| goland-claude-marketplace | GitHub `JetBrains/go-modern-guidelines`（只装 modern-go-guidelines） |
-
----
-
 ## 1. 系统包和 mise
 
 mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。
