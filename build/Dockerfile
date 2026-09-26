@@ -30,7 +30,8 @@ RUN mkdir -p \
 FROM icecodexi/python:debian-nonroot@sha256:55799dfc2ebc565ecd29a2ac4588efa58daedaad39e31fadef1cec998dd43fb9 AS mise
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root:root
-# git, curl and lsof are not in the mise registry; openssh-server runs as nonroot (see entrypoint.sh)
+# git, curl and lsof are not in the mise registry; perl comes with Debian.
+# openssh-server runs as nonroot (see entrypoint.sh); sudo stands in for root login.
 RUN extrepo enable mise \
     && install_packages \
         libatomic1 mise \
@@ -39,19 +40,15 @@ RUN extrepo enable mise \
         git \
         jq \
         lsof \
-        openssh-client \
         openssh-server \
         ripgrep \
-    && rm -f /etc/ssh/ssh_host_*
+        sudo \
+    && rm -f /etc/ssh/ssh_host_* \
+    && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nonroot
 COPY --link <<sshd_config /etc/ssh/sshd_config.d/nonroot.conf
 Port 8964
 HostKey /home/nonroot/.ssh/ssh_host_ed25519_key
-PidFile none
-UsePAM no
-AllowUsers nonroot
-PermitRootLogin no
 PasswordAuthentication no
-KbdInteractiveAuthentication no
 sshd_config
 
 ENV HOME=/home/nonroot
@@ -71,13 +68,15 @@ FROM mise AS assets
 # renovate: datasource=node-version packageName=node
 ARG NODE_VERSION=26.10.0
 # renovate: datasource=github-releases packageName=pnpm/pnpm
-ARG PNPM_VERSION=11.11.0
+ARG PNPM_VERSION=12.6.0
 # renovate: datasource=npm packageName=@openai/codex
 ARG CODEX_VERSION=0.157.1
 # renovate: datasource=npm packageName=@jackwener/opencli
 ARG OPENCLI_VERSION=1.8.7
 # renovate: datasource=npm packageName=@anthropic-ai/claude-code
 ARG CLAUDE_CODE_VERSION=2.1.283
+# renovate: datasource=npm packageName=playwright-core
+ARG PLAYWRIGHT_CORE_VERSION=1.63.0
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -92,7 +91,6 @@ ast-grep = "latest"
 bun = "latest"
 gh = "latest"
 go = "latest"
-perl = "latest"
 rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 shellcheck = "latest"
 tree-sitter = "latest"
@@ -120,7 +118,10 @@ mise use -g \
 mise use -g \
     claude-code@${CLAUDE_CODE_VERSION} \
     "npm:@openai/codex"@${CODEX_VERSION} \
-    "npm:@jackwener/opencli"@${OPENCLI_VERSION}
+    "npm:@jackwener/opencli"@${OPENCLI_VERSION} \
+    "npm:playwright-core"@${PLAYWRIGHT_CORE_VERSION}
+mise install \
+    npm:typescript npm:typescript-language-server npm:firecrawl-cli npm:openskills
 cp -a "${HOME}/.local/share/mise" "/empty/${HOME}/.local/share/"
 EOF
 
@@ -145,6 +146,13 @@ RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,
     --mount=type=cache,id=go-mod-cache,target=/home/nonroot/go/pkg/mod,uid=65532,gid=65532 \
     --mount=type=cache,id=uv-cache,target=/home/nonroot/.cache/uv,uid=65532,gid=65532 \
     mise install && mise reshim
+
+# The headless shell cannot load extensions, so install only full Chromium.
+# --with-deps uses apt through sudo when it does not run as root.
+# hadolint ignore=DL3004
+RUN playwright-core --version \
+    && playwright-core install --with-deps --no-shell chromium \
+    && sudo rm -rf /var/lib/apt/lists/*
 
 # Shared venv for claude-agent-sdk (security-guidance), pyyaml (skill-creator), pyright (pyright-lsp)
 # and readability-lxml/html2text (read skill). python 3.13 because security-guidance only probes

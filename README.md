@@ -6,9 +6,9 @@ Claude Code 插件清单，以及用 mise/uv 管理依赖的安装手册
 
 ## claude-dev 镜像
 
-镜像按 `claude-plugins-setup.md` 第 1 到第 4 节构建：mise 工具、共享 Python venv、Claude Code 插件和第三方技能都已装好。插件只装给 Claude Code；技能装在 `~/.claude/skills`，并逐个软链接到 Codex 读取的 `~/.agents/skills`。
+镜像按 `claude-plugins-setup.md` 第 1 到第 4 节构建：mise 工具、共享 Python venv、Claude Code 插件和第三方技能都已装好。另外用 mise 装了 playwright-core 和它的 Chromium（含系统依赖），供无头浏览器测试使用。插件只装给 Claude Code；技能装在 `~/.claude/skills`，并逐个软链接到 Codex 读取的 `~/.agents/skills`。
 
-容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。
+容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。nonroot 有免密 sudo，需要 root 时用 `sudo -i`。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。
 
 本地构建：
 
