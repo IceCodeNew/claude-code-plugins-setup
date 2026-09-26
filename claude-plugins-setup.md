@@ -103,13 +103,6 @@ mise use -g cloudflared@latest     # 只在 cloudflare 的 tunnel 参考文档�
 mise use -g conda:graphviz@latest  # superpowers 的 render-graphs.js 生成 SVG 用
 ```
 
-在无头服务器上用 Chromium 测试网页或浏览器扩展时，安装 agent-browser。`agent-browser install` 下载它使用的 Chrome；`--with-deps` 还会用 apt 安装 Chrome 需要的系统库（如 libnss3、libnspr4），需要 root 或 sudo：
-
-```bash
-mise use -g npm:agent-browser@latest
-agent-browser install --with-deps
-```
-
 coderabbit 的 skill 示例里用了 `cr` 命令，但 mise 装的 zip 里只有 `coderabbit`。主流程不受影响，想要的话在 shell 里加一行：
 
 ```bash
