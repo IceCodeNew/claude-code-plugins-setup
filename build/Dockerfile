@@ -89,9 +89,23 @@ set -euo pipefail
 # typescript from its own node_modules, so postinstall links it to typescript 6.
 cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
 [tools]
+age = "latest"
+atuin = "latest"
+bat = "latest"
+bat-extras = "latest"
 bun = "latest"
+cargo-binstall = "latest"
+croc = "latest"
+dive = "latest"
+duf = "latest"
 gh = "latest"
+helm = "latest"
+hyperfine = "latest"
+kubecm = "latest"
+kubectl = "latest"
+kustomize = "latest"
 shellcheck = "latest"
+usage = "latest"
 uv = "latest"
 
 ast-grep = "latest"
@@ -101,6 +115,8 @@ go = "latest"
 "go:golang.org/x/tools/gopls" = "latest"
 "npm:typescript" = "6"
 "npm:typescript-language-server" = { version = "latest", depends = ["npm:typescript"], postinstall = 'ln -sfn "$HOME/.local/share/mise/installs/npm-typescript/6/node_modules/typescript" "$MISE_TOOL_INSTALL_PATH/node_modules/typescript"' }
+
+"aqua:iffse/pay-respects" = "latest"
 
 "npm:@getpaseo/cli" = "latest"
 "npm:openskills" = "latest"
