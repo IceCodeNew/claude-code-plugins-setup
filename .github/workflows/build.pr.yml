@@ -1,4 +1,4 @@
-name: raft Image CI (PR)
+name: claude-dev Image CI (PR)
 permissions: {}
 
 on:
@@ -7,18 +7,18 @@ on:
       - "renovate/**"
   pull_request:
     paths:
-      - ".github/workflows/raft.build.pr.yml"
-      - "raft.build/**"
+      - ".github/workflows/build.pr.yml"
+      - "build/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
-  RAFT_DAEMON_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/raft-daemon
+  CLAUDE_DEV_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/claude-dev
 
 jobs:
-  ci-raft-daemon:
+  ci-claude-dev:
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false
@@ -37,16 +37,19 @@ jobs:
       - name: Build and load
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: "{{defaultContext}}:raft.build"
-          file: raft-daemon.Dockerfile
+          context: "{{defaultContext}}:build"
+          file: Dockerfile
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           load: true
-          tags: ${{ env.RAFT_DAEMON_IMAGE }}:pr-test
+          tags: ${{ env.CLAUDE_DEV_IMAGE }}:pr-test
       - name: Smoke test
         run: |
-          test_image="${RAFT_DAEMON_IMAGE}:pr-test"
+          test_image="${CLAUDE_DEV_IMAGE}:pr-test"
           docker image inspect "${test_image}"
-          docker run --rm --entrypoint raft "${test_image}" --version
-          docker run --rm --entrypoint yq   "${test_image}" --version
+          docker run --rm --entrypoint claude "${test_image}" --version
+          docker run --rm --entrypoint codex  "${test_image}" --version
+          docker run --rm --entrypoint yq     "${test_image}" --version
+          docker run --rm --entrypoint bash   "${test_image}" -lc \
+              'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'

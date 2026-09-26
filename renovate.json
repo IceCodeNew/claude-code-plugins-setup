@@ -15,7 +15,7 @@
       "customType": "regex",
       "description": "Update _VERSION variables in github actions",
       "managerFilePatterns": [
-        "/(^|/)\\.github\/workflows\/raft\\.build\\.yml$/"
+        "/(^|/)\\.github\/workflows\/build\\.yml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>[a-z-]+?))?\\s.+?_VERSION: (?<currentValue>.+?)\\s"
@@ -46,13 +46,9 @@
       "internalChecksFilter": "strict"
     },
     {
-      "matchPackageNames": ["@botiverse/raft*"],
-      "minimumReleaseAge": null
-    },
-    {
       "matchDatasources": ["node-version"],
       "matchPackageNames": ["node"],
-      "allowedVersions": "/^24\\./"
+      "allowedVersions": "/^26\\./"
     },
     {
       "matchUpdateTypes": ["minor", "patch"],
@@ -60,7 +56,7 @@
       "automerge": true
     },
     {
-      "matchPackageNames": ["@botiverse/raft*", "@openai/codex"],
+      "matchPackageNames": ["@openai/codex"],
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true
     },
