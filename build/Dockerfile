@@ -1,6 +1,6 @@
 # syntax=mirror.gcr.io/docker/dockerfile:1.25.0@sha256:0adf442eae370b6087e08edc7c50b552d80ddf261576f4ebd6421006b2461f12
 
-FROM icecodexi/python:debian-nonroot@sha256:55799dfc2ebc565ecd29a2ac4588efa58daedaad39e31fadef1cec998dd43fb9 AS secure-mirrors
+FROM icecodexi/python:debian-nonroot@sha256:c317503c42a6b6471a1c60f60adf5e74259e46db4100c76a00fc8b4512757f88 AS secure-mirrors
 COPY --link <<npm <<pip <<uv /
 
 registry=https://npm.flatt.tech/
@@ -27,7 +27,7 @@ RUN mkdir -p \
     && cp -f /uv  "/secure-mirrors/${HOME}/.config/uv/uv.toml"
 
 
-FROM icecodexi/python:debian-nonroot@sha256:55799dfc2ebc565ecd29a2ac4588efa58daedaad39e31fadef1cec998dd43fb9 AS mise
+FROM icecodexi/python:debian-nonroot@sha256:c317503c42a6b6471a1c60f60adf5e74259e46db4100c76a00fc8b4512757f88 AS mise
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root:root
 # git, curl and lsof are not in the mise registry; perl comes with Debian.
