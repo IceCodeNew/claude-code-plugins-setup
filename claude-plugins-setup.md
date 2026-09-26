@@ -12,7 +12,7 @@
 
 ## 1. 系统包和 mise
 
-mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。
+mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。ralph-loop 的 stop-hook 用 perl 提取 `<promise>` 标签，缺了不会报错，但循环永远不会结束；Debian、Ubuntu、Fedora 都自带 perl，不用另装。
 
 ```bash
 # Debian / Ubuntu
@@ -47,7 +47,6 @@ exec bash
 | `bun` | telegram 的 stdio MCP |
 | `uv` | 创建和管理共享 Python venv（2.2 节） |
 | `gh`、`jq` | code-review、commit-commands、pr-review-toolkit、coderabbit、remember、ralph-loop |
-| `perl` | ralph-loop 的 stop-hook 用 perl 提取 `<promise>` 标签，缺了不会报错，但循环永远不会结束 |
 | `claude-code` | Claude Code 本身；remember、security-guidance、skill-creator 也会调用 `claude` |
 | `go`、`"go:golang.org/x/tools/gopls"` | gopls-lsp |
 | `rust`（带 `rust-src`、`rust-analyzer` 组件） | rust-analyzer-lsp。mise 按 minimal profile 装的 rust 没有 rust-src，rust-analyzer 无法分析标准库；rust-analyzer 用 rustup 组件，版本和工具链一致 |
@@ -72,7 +71,6 @@ bun = "latest"
 uv = "latest"
 gh = "latest"
 jq = "latest"
-perl = "latest"
 pnpm = "latest"
 claude-code = "latest"
 go = "latest"
@@ -332,7 +330,7 @@ nmem status
 ## 6. 验证
 
 ```bash
-# 工具都在 PATH 上，且来自 mise
+# 工具都在 PATH 上；除 perl 外都来自 mise
 for c in perl jq gh node bun nmem firecrawl coderabbit \
          pyright-langserver typescript-language-server gopls rust-analyzer cargo claude; do
   printf '%-28s %s\n' "$c" "$(command -v $c || echo MISSING)"
