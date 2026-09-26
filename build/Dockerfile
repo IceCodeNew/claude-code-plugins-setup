@@ -46,6 +46,7 @@ RUN extrepo enable mise \
         plocate procps psmisc px \
         ripgrep rsync \
         sudo \
+        tmux \
     && rm -f /etc/ssh/ssh_host_* \
     && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nonroot
 COPY --link <<sshd_config /etc/ssh/sshd_config.d/nonroot.conf
