@@ -249,6 +249,8 @@ ripwire 升级后技能列表可能变化，重新执行同一条命令即可：
 
 ### 4.3 其余技能（openskills）
 
+test-audit 位于 openclaw 仓库的 `.agents/skills/` 下，openskills 会把整个目录复制过来，技能正文引用的 CAMPAIGN.md 也在其中。
+
 最后一项是 GitHub Gist 上的 japanese-tech-writing（日语技术文档写作规范），openskills 直接用 gist 的 git 地址安装，技能目录名取自 SKILL.md 的 `name`。
 
 ```bash
@@ -268,6 +270,7 @@ for s in \
   cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
   Xuanwo/xurl/skills/xurl \
   ninehills/skills/tech-doc-style-chinese \
+  openclaw/openclaw/.agents/skills/test-audit \
   https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
 do
   openskills install "$s" -g -y
