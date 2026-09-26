@@ -138,7 +138,7 @@ FROM mise AS tools
 COPY --link --from=ghcr.io/astral-sh/ruff:0.15.21@sha256:d88c0de3362ae064e5f3175ff558ee1077223d3f81a1e78b1cf57825c4882454 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.58@sha256:8d279433ab7ebba881fe2c8a66bc892c4f3411a54f440b79c59621bc9db3ef03 /ty /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/uv:0.11.28@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa /uv /uvx /usr/local/bin/
-COPY --link --from=mikefarah/yq:4.53.3@sha256:11a1f0b604b13dbbdc662260d8db6f644b22d8553122a25c1b5b2e8713ca6977 /usr/bin/yq /usr/local/bin/
+COPY --link --from=mikefarah/yq:4.53.6@sha256:cfc4eee658595834ef304eadb0c3ea721f3b7cb6404ad8b7cb909cc5b5145b23 /usr/bin/yq /usr/local/bin/
 COPY --link --from=ghcr.io/j178/prek:v0.4.8@sha256:923fe4fde30504a5043a590e8dc175d0dc270a3311d14aec44994ad4fd4a088e /prek /usr/local/bin/
 COPY --link --from=npm-pkgs --chown=65532:65532 /home/nonroot/ /home/nonroot/
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
