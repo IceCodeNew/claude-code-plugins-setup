@@ -41,7 +41,7 @@ RUN extrepo enable mise \
         jq \
         lsof \
         openssh-server \
-        ripgrep \
+        ripgrep rsync \
         sudo \
     && rm -f /etc/ssh/ssh_host_* \
     && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nonroot
