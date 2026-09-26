@@ -79,8 +79,6 @@ ARG CODEX_VERSION=0.157.1
 ARG OPENCLI_VERSION=1.8.7
 # renovate: datasource=npm packageName=@anthropic-ai/claude-code
 ARG CLAUDE_CODE_VERSION=2.1.283
-# renovate: datasource=npm packageName=playwright-core
-ARG PLAYWRIGHT_CORE_VERSION=1.63.0
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -91,21 +89,26 @@ set -euo pipefail
 # typescript from its own node_modules, so postinstall links it to typescript 6.
 cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
 [tools]
-ast-grep = "latest"
 bun = "latest"
 gh = "latest"
-go = "latest"
-rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 shellcheck = "latest"
-tree-sitter = "latest"
 uv = "latest"
 
+ast-grep = "latest"
+tree-sitter = "latest"
+rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
+go = "latest"
 "go:golang.org/x/tools/gopls" = "latest"
 "npm:typescript" = "6"
 "npm:typescript-language-server" = { version = "latest", depends = ["npm:typescript"], postinstall = 'ln -sfn "$HOME/.local/share/mise/installs/npm-typescript/6/node_modules/typescript" "$MISE_TOOL_INSTALL_PATH/node_modules/typescript"' }
-"npm:firecrawl-cli" = "latest"
+
+"npm:@getpaseo/cli" = "latest"
 "npm:openskills" = "latest"
+"npm:firecrawl-cli" = "latest"
+"npm:playwright-core" = "latest"
+
 "pypi:nmem-cli" = "latest"
+
 "github:aptible/supercronic" = "latest"
 "github:redhat-et/ripwire" = "latest"
 "github:Xuanwo/xurl" = "latest"
@@ -122,10 +125,10 @@ mise use -g \
 mise use -g \
     claude-code@${CLAUDE_CODE_VERSION} \
     "npm:@openai/codex"@${CODEX_VERSION} \
-    "npm:@jackwener/opencli"@${OPENCLI_VERSION} \
-    "npm:playwright-core"@${PLAYWRIGHT_CORE_VERSION}
+    "npm:@jackwener/opencli"@${OPENCLI_VERSION}
 mise install \
-    npm:typescript npm:typescript-language-server npm:firecrawl-cli npm:openskills
+    "npm:typescript" "npm:typescript-language-server" \
+    "npm:@getpaseo/cli" "npm:openskills" "npm:firecrawl-cli" "npm:playwright-core"
 cp -a "${HOME}/.local/share/mise" "/empty/${HOME}/.local/share/"
 EOF
 
