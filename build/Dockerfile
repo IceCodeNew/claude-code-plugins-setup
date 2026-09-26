@@ -37,10 +37,13 @@ RUN extrepo enable mise \
         libatomic1 mise \
         build-essential musl \
         curl \
-        git \
+        fd-find findutils \
+        git patchutils \
         jq \
         lsof \
+        ncdu \
         openssh-server \
+        plocate procps psmisc px \
         ripgrep rsync \
         sudo \
     && rm -f /etc/ssh/ssh_host_* \
