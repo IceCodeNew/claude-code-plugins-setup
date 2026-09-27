@@ -94,6 +94,9 @@ go = "latest"
 CONFIG
 mise install
 rm -rf "${HOME}/.local/share/mise/installs/.mise-installs.toml" "${HOME}/.local/share/mise/shims"
+# go install leaves local telemetry counters (with an upload token) and a checksum-database
+# cache behind; neither belongs in the image.
+rm -rf "${HOME}/.config/go/telemetry" "${HOME}/go/pkg/sumdb"
 EOF
 
 
