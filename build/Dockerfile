@@ -108,7 +108,8 @@ usage = "latest"
 
 ast-grep = "latest"
 tree-sitter = "latest"
-rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
+# the minimal profile leaves out rust-docs (917M); clippy and rustfmt come from the default one
+rust = { version = "latest", profile = "minimal", components = ["rust-src", "rust-analyzer", "clippy", "rustfmt"] }
 go = "latest"
 "go:golang.org/x/tools/gopls" = "latest"
 "npm:typescript" = "6"
