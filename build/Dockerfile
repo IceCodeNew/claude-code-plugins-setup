@@ -407,3 +407,27 @@ COPY --link --chmod=755 entrypoint.sh /
 EXPOSE 8964
 ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 
+
+# CI builds this target before pushing, so the checks run inside BuildKit on the image it is
+# about to push, without loading or pulling it. It adds nothing to the default target below.
+FROM final AS smoke
+RUN <<EOF
+set -euo pipefail
+claude --version
+test -z "$(mise ls 2>&1 >/dev/null)"
+# COPY --link into a path below /home/nonroot would leave root-owned directories behind
+test -z "$(find "${HOME}" -xdev ! -user nonroot -print -quit)"
+# the SDKs' bundled claude must stay symlinks to the one installed by the claude stage
+bundled=$(find "${HOME}/.local/share" -name claude -path '*claude[-_]agent[-_]sdk*')
+test "$(wc -l <<< "${bundled}")" -eq 2
+for c in ${bundled}; do
+    test -L "${c}"
+    "${c}" --version
+done
+codex --version
+yq --version
+bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
+EOF
+
+
+FROM final

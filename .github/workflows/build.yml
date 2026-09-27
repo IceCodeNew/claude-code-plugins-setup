@@ -37,7 +37,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build and push by digest
+      # The smoke stage runs its checks inside BuildKit on the image about to be pushed, so
+      # nothing is pushed unless they pass, and the image is never pulled back or loaded.
+      - name: Build and smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: "{{defaultContext}}:build"
+          file: Dockerfile
+          target: smoke
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          outputs: type=cacheonly
+      - name: Push by digest
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -48,18 +59,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           outputs: |
             type=image,compression=estargz,force-compression=true,oci-mediatypes=true,name=${{ env.CLAUDE_DEV_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-      - name: Smoke test
-        env:
-          digest: ${{ steps.build.outputs.digest }}
-        run: |
-          test_image="${CLAUDE_DEV_IMAGE}@${digest}"
-          docker pull "${test_image}" || true
-          docker image inspect "${test_image}"
-          docker run --rm --pull=never --entrypoint claude "${test_image}" --version
-          docker run --rm --pull=never --entrypoint codex  "${test_image}" --version
-          docker run --rm --pull=never --entrypoint yq     "${test_image}" --version
-          docker run --rm --pull=never --entrypoint bash   "${test_image}" -lc \
-              'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
 
       - name: Export digest
         env:
