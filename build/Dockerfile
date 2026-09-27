@@ -339,10 +339,13 @@ mise install
 EOF
 
 
-# Chromium's system libraries. playwright-core comes from a bind mount, so the image gets the
-# apt packages without a second copy of node and playwright-core.
 FROM mise AS runtime
 USER root:root
+# Codex's Linux sandbox runs the first bwrap on PATH; without one it warns and falls back to
+# a bundled helper.
+RUN install_packages bubblewrap
+# Chromium's system libraries. playwright-core comes from a bind mount, so the image gets the
+# apt packages without a second copy of node and playwright-core.
 RUN --mount=type=bind,from=npm-tools,source=/home/nonroot/.local/share/mise/installs,target=/home/nonroot/.local/share/mise/installs \
     PATH="${HOME}/.local/share/mise/installs/node/latest/bin:${PATH}" \
     "${HOME}/.local/share/mise/installs/npm-playwright-core/latest/node_modules/.bin/playwright-core" install-deps chromium \
@@ -425,6 +428,7 @@ for c in ${bundled}; do
     "${c}" --version
 done
 codex --version
+bwrap --version
 yq --version
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
 EOF
