@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          # the runner is discarded after the job; removing the builder took 20-40 s
+          cleanup: false
       - name: Login to Docker Hub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -37,7 +40,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build and push by digest
+      # The smoke stage runs its checks inside BuildKit on the image about to be pushed, so
+      # nothing is pushed unless they pass, and the image is never pulled back or loaded.
+      - name: Build and smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: "{{defaultContext}}:build"
+          file: Dockerfile
+          target: smoke
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          outputs: type=cacheonly
+      # mode=min rather than mode=max: max also exported every intermediate stage, about 4.2 GB
+      # per platform per run. Uploading it took 40-59% of the build step, the two platforms
+      # nearly filled the 10 GB repository cache, and later runs hit missing cache blobs. Every
+      # stage now reaches the final image through COPY --link, so the final image's layers are
+      # all a later build needs to skip an unchanged stage, and a version bump uploads only the
+      # layer that changed.
+      # zstd instead of estargz: faster to compress and pull, and smaller. The k8s nodes that
+      # run this image pull it in full, so estargz lazy loading went unused. Pulling zstd layers
+      # needs Docker Engine 23+ or containerd 1.5+.
+      - name: Push by digest
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -45,21 +68,9 @@ jobs:
           file: Dockerfile
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.platform }}
           outputs: |
-            type=image,compression=estargz,force-compression=true,oci-mediatypes=true,name=${{ env.CLAUDE_DEV_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-      - name: Smoke test
-        env:
-          digest: ${{ steps.build.outputs.digest }}
-        run: |
-          test_image="${CLAUDE_DEV_IMAGE}@${digest}"
-          docker pull "${test_image}" || true
-          docker image inspect "${test_image}"
-          docker run --rm --pull=never --entrypoint claude "${test_image}" --version
-          docker run --rm --pull=never --entrypoint codex  "${test_image}" --version
-          docker run --rm --pull=never --entrypoint yq     "${test_image}" --version
-          docker run --rm --pull=never --entrypoint bash   "${test_image}" -lc \
-              'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
+            type=image,compression=zstd,force-compression=true,oci-mediatypes=true,name=${{ env.CLAUDE_DEV_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         env:
