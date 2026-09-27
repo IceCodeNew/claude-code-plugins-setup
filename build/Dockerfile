@@ -189,6 +189,12 @@ cat > "${HOME}/.config/mise/conf.d/40-npm-tools.toml" <<'CONFIG'
 "npm:playwright-core" = "latest"
 CONFIG
 mise install
+# paseo depends on @anthropic-ai/claude-agent-sdk, whose platform package ships its own claude
+# (~240M). paseo passes the claude on PATH to the SDK anyway, so point the bundled one at the
+# claude installed by the claude stage instead of carrying a second copy.
+find "${HOME}/.local/share/mise/installs/npm-getpaseo-cli" -type f -name claude \
+        -path '*/@anthropic-ai/claude-agent-sdk-linux-*/claude' \
+    -exec ln -sfn "${HOME}/.local/share/mise/installs/claude-code/latest/claude" {} \;
 EOF
 
 
@@ -210,6 +216,9 @@ export UV_LINK_MODE=copy
 uv venv --python /usr/bin/python3.13 "${CLAUDE_PLUGINS_VENV}"
 uv pip install --python "${CLAUDE_PLUGINS_VENV}/bin/python" \
     claude-agent-sdk pyyaml pyright readability-lxml html2text
+# claude-agent-sdk bundles its own claude (~230M); point it at the one from the claude stage.
+ln -sfn "${HOME}/.local/share/mise/installs/claude-code/latest/claude" \
+    "${CLAUDE_PLUGINS_VENV}/lib/python3.13/site-packages/claude_agent_sdk/_bundled/claude"
 mkdir -p "${HOME}/.claude/security"
 ln -sfn "${CLAUDE_PLUGINS_VENV}" "${HOME}/.claude/security/agent-sdk-venv"
 EOF
