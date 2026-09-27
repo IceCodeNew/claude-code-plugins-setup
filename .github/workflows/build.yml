@@ -48,6 +48,12 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           outputs: type=cacheonly
+      # mode=min rather than mode=max: max also exported every intermediate stage, about 4.2 GB
+      # per platform per run. Uploading it took 40-59% of the build step, the two platforms
+      # nearly filled the 10 GB repository cache, and later runs hit missing cache blobs. Every
+      # stage now reaches the final image through COPY --link, so the final image's layers are
+      # all a later build needs to skip an unchanged stage, and a version bump uploads only the
+      # layer that changed.
       - name: Push by digest
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -56,7 +62,7 @@ jobs:
           file: Dockerfile
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.platform }}
           outputs: |
             type=image,compression=estargz,force-compression=true,oci-mediatypes=true,name=${{ env.CLAUDE_DEV_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
