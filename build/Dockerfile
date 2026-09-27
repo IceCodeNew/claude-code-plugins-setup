@@ -76,7 +76,7 @@ ARG PNPM_VERSION=12.7.0
 # renovate: datasource=npm packageName=@openai/codex
 ARG CODEX_VERSION=0.157.1
 # renovate: datasource=npm packageName=@jackwener/opencli
-ARG OPENCLI_VERSION=1.8.7
+ARG OPENCLI_VERSION=1.8.8
 # renovate: datasource=npm packageName=@anthropic-ai/claude-code
 ARG CLAUDE_CODE_VERSION=2.1.283
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
