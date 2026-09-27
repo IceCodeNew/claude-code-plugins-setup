@@ -34,6 +34,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Reads the master cache (a branch can read its default branch's cache) and never writes:
+      # branch-scoped entries are unreadable from master and count against the same 10 GB quota.
       # The smoke stage runs the checks inside BuildKit, so the image is not loaded into docker.
       - name: Build and smoke test
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -43,5 +45,4 @@ jobs:
           target: smoke
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           outputs: type=cacheonly
