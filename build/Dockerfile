@@ -1,5 +1,11 @@
 # syntax=mirror.gcr.io/docker/dockerfile:1.27.0@sha256:bde3983e9c939224420ddaf6b784cc30e09b035a4dea01f581230c50809f372e
 
+# Stages are grouped by how often their inputs change, and each lands in the final image
+# through COPY --link. A Claude Code bump rebuilds the claude stage and replaces its layer;
+# every other layer keeps its digest, so CI skips them and users do not re-pull them.
+# Stages that install "latest" versions (toolchains, cli, npm-tools, browsers, venv,
+# agent-config) rebuild only when their own instructions or the mise stage change.
+
 FROM icecodexi/python:debian-nonroot@sha256:0dca83c3d73b84900fb5d7c25f17219e1eb3987876ceda193196ec337bebb6f1 AS secure-mirrors
 COPY --link <<npm <<pip <<uv /
 
@@ -25,6 +31,9 @@ RUN mkdir -p \
     && cp -f /npm "/secure-mirrors/${HOME}/.config/pnpm/auth.ini" \
     && cp -f /pip "/secure-mirrors/${HOME}/.config/pip/pip.conf" \
     && cp -f /uv  "/secure-mirrors/${HOME}/.config/uv/uv.toml"
+
+
+FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv-bin
 
 
 FROM icecodexi/python:debian-nonroot@sha256:0dca83c3d73b84900fb5d7c25f17219e1eb3987876ceda193196ec337bebb6f1 AS mise
@@ -55,11 +64,11 @@ HostKey /home/nonroot/.ssh/ssh_host_ed25519_key
 PasswordAuthentication no
 sshd_config
 
+
 ENV HOME=/home/nonroot
 RUN mkdir -p \
-    "/empty/${HOME}/.local/share/" \
-    "${HOME}/.cache" "${HOME}/.config/mise" "${HOME}/.local/share/mise" "${HOME}/.local/state/mise" "${HOME}/go/pkg" \
-    && chown -R 65532:65532 "${HOME}" /empty/
+    "${HOME}/.cache" "${HOME}/.config/mise/conf.d" "${HOME}/.local/share/mise" "${HOME}/.local/state/mise" "${HOME}/go/pkg" \
+    && chown -R 65532:65532 "${HOME}"
 
 USER nonroot:nonroot
 ENV PNPM_HOME="${HOME}/.local/share/pnpm"
@@ -68,26 +77,37 @@ ENV PATH="${HOME}/.local/share/mise/shims:${PNPM_HOME}/bin:${PATH}" \
     SHELL=bash
 
 
-FROM mise AS assets
-# renovate: datasource=node-version packageName=node
-ARG NODE_VERSION=26.10.0
-# renovate: datasource=github-releases packageName=pnpm/pnpm
-ARG PNPM_VERSION=12.7.0
-# renovate: datasource=npm packageName=@openai/codex
-ARG CODEX_VERSION=0.157.1
-# renovate: datasource=npm packageName=@jackwener/opencli
-ARG OPENCLI_VERSION=1.8.7
-# renovate: datasource=npm packageName=@anthropic-ai/claude-code
-ARG CLAUDE_CODE_VERSION=2.1.283
+FROM mise AS toolchains
+# The minimal profile leaves out rust-docs (917M); clippy and rustfmt come from the default profile.
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
-    --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
     --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
+    --mount=type=cache,id=go-build-cache,target=/home/nonroot/.cache/go-build,uid=65532,gid=65532 \
+    --mount=type=cache,id=go-mod-cache,target=/home/nonroot/go/pkg/mod,uid=65532,gid=65532 \
     <<EOF
 set -euo pipefail
-# typescript 7 is the Go-native build without tsserver.js; typescript-language-server resolves
-# typescript from its own node_modules, so postinstall links it to typescript 6.
-cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
+cat > "${HOME}/.config/mise/conf.d/10-toolchains.toml" <<'CONFIG'
+[tools]
+rust = { version = "latest", profile = "minimal", components = ["rust-src", "rust-analyzer", "clippy", "rustfmt"] }
+go = "latest"
+"go:golang.org/x/tools/gopls" = "latest"
+CONFIG
+mise install
+rm -rf "${HOME}/.local/share/mise/installs/.mise-installs.toml" "${HOME}/.local/share/mise/shims"
+EOF
+
+
+FROM mise AS cli
+# uv is the pinned uv-bin binary (also copied into the final image), not a mise tool; the pypi
+# backend below uses it.
+COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
+    --mount=type=cache,id=uv-cache,target=/home/nonroot/.cache/uv,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+cat > "${HOME}/.config/mise/conf.d/20-cli.toml" <<'CONFIG'
 [tools]
 age = "latest"
 atuin = "latest"
@@ -108,19 +128,8 @@ usage = "latest"
 
 ast-grep = "latest"
 tree-sitter = "latest"
-# the minimal profile leaves out rust-docs (917M); clippy and rustfmt come from the default one
-rust = { version = "latest", profile = "minimal", components = ["rust-src", "rust-analyzer", "clippy", "rustfmt"] }
-go = "latest"
-"go:golang.org/x/tools/gopls" = "latest"
-"npm:typescript" = "6"
-"npm:typescript-language-server" = { version = "latest", depends = ["npm:typescript"], postinstall = 'ln -sfn "$HOME/.local/share/mise/installs/npm-typescript/6/node_modules/typescript" "$MISE_TOOL_INSTALL_PATH/node_modules/typescript"' }
 
 "aqua:iffse/pay-respects" = "latest"
-
-"npm:@getpaseo/cli" = "latest"
-"npm:openskills" = "latest"
-"npm:firecrawl-cli" = "latest"
-"npm:playwright-core" = "latest"
 
 "pypi:nmem-cli" = "latest"
 
@@ -134,66 +143,68 @@ version_list_url = "https://cli.coderabbit.ai/releases/latest/VERSION"
 platforms.linux-x64 = { url = "https://cli.coderabbit.ai/releases/{{ version }}/coderabbit-linux-x64.zip" }
 platforms.linux-arm64 = { url = "https://cli.coderabbit.ai/releases/{{ version }}/coderabbit-linux-arm64.zip" }
 CONFIG
-
-mise use -g \
-    node@${NODE_VERSION} pnpm@${PNPM_VERSION}
-mise use -g \
-    claude-code@${CLAUDE_CODE_VERSION} \
-    "npm:@openai/codex"@${CODEX_VERSION} \
-    "npm:@jackwener/opencli"@${OPENCLI_VERSION}
-mise install \
-    "npm:typescript" "npm:typescript-language-server" \
-    "npm:@getpaseo/cli" "npm:openskills" "npm:firecrawl-cli" "npm:playwright-core"
-cp -a "${HOME}/.local/share/mise" "/empty/${HOME}/.local/share/"
+mise install
+rm -rf "${HOME}/.local/share/mise/installs/.mise-installs.toml" "${HOME}/.local/share/mise/shims"
 EOF
 
 
-FROM scratch AS npm-pkgs
-COPY --link --from=assets /home/nonroot/ /home/nonroot/
-COPY --link --from=assets /empty/ /
+FROM mise AS node
+# renovate: datasource=node-version packageName=node
+ARG NODE_VERSION=26.10.0
+# renovate: datasource=github-releases packageName=pnpm/pnpm
+ARG PNPM_VERSION=12.7.0
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+cat > "${HOME}/.config/mise/conf.d/30-node.toml" <<CONFIG
+[tools]
+node = "${NODE_VERSION}"
+pnpm = "${PNPM_VERSION}"
+CONFIG
+mise install
+rm -rf "${HOME}/.local/share/mise/installs/.mise-installs.toml" "${HOME}/.local/share/mise/shims"
+EOF
 
 
-FROM mise AS tools
-COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
-COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
-COPY --link --from=ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 /uv /uvx /usr/local/bin/
-COPY --link --from=mikefarah/yq:4.53.6@sha256:cfc4eee658595834ef304eadb0c3ea721f3b7cb6404ad8b7cb909cc5b5145b23 /usr/bin/yq /usr/local/bin/
-COPY --link --from=ghcr.io/j178/prek:0.5.3@sha256:f27d17a6b21959c5ba7d65039d72e9502c6951e79cbbfae2c1a0498a4859a5cb /prek /usr/local/bin/
-COPY --link --from=npm-pkgs --chown=65532:65532 /home/nonroot/ /home/nonroot/
+FROM node AS npm-tools
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
-    --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
-    --mount=type=cache,id=go-build-cache,target=/home/nonroot/.cache/go-build,uid=65532,gid=65532 \
-    --mount=type=cache,id=go-mod-cache,target=/home/nonroot/go/pkg/mod,uid=65532,gid=65532 \
-    --mount=type=cache,id=uv-cache,target=/home/nonroot/.cache/uv,uid=65532,gid=65532 \
-    mise install && mise reshim
+    <<EOF
+set -euo pipefail
+# typescript 7 is the Go-native build without tsserver.js; typescript-language-server resolves
+# typescript from its own node_modules, so postinstall links it to typescript 6.
+cat > "${HOME}/.config/mise/conf.d/40-npm-tools.toml" <<'CONFIG'
+[tools]
+"npm:typescript" = "6"
+"npm:typescript-language-server" = { version = "latest", depends = ["npm:typescript"], postinstall = 'ln -sfn "$HOME/.local/share/mise/installs/npm-typescript/6/node_modules/typescript" "$MISE_TOOL_INSTALL_PATH/node_modules/typescript"' }
+"npm:@getpaseo/cli" = "latest"
+"npm:openskills" = "latest"
+"npm:firecrawl-cli" = "latest"
+"npm:playwright-core" = "latest"
+CONFIG
+mise install
+EOF
+
 
 # The headless shell cannot load extensions, so install only full Chromium.
-# --with-deps uses apt through sudo when it does not run as root.
-# hadolint ignore=DL3004
-RUN playwright-core --version \
-    && playwright-core install --with-deps --no-shell chromium \
-    && sudo rm -rf /var/lib/apt/lists/*
+FROM npm-tools AS browsers
+RUN playwright-core install --no-shell chromium
+
 
 # Shared venv for claude-agent-sdk (security-guidance), pyyaml (skill-creator), pyright (pyright-lsp)
 # and readability-lxml/html2text (read skill). python 3.13 because security-guidance only probes
-# python3.13 through python3.10.
+# python3.13 through python3.10. The [env] entry in config.toml points mise at this venv.
+FROM mise AS venv
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
+COPY --link --from=uv-bin /uv /usr/local/bin/
 RUN --mount=type=cache,id=uv-cache,target=/home/nonroot/.cache/uv,uid=65532,gid=65532 \
     <<EOF
 set -euo pipefail
-cat >> "${HOME}/.config/mise/config.toml" <<'CONFIG'
-
-[env]
-_.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
-# github MCP; empty until `gh auth login`
-GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
-CONFIG
-
 export UV_LINK_MODE=copy
-# mise creates the venv from [env] on its first run
-mise exec -- python --version
+uv venv --python /usr/bin/python3.13 "${CLAUDE_PLUGINS_VENV}"
 uv pip install --python "${CLAUDE_PLUGINS_VENV}/bin/python" \
     claude-agent-sdk pyyaml pyright readability-lxml html2text
 mkdir -p "${HOME}/.claude/security"
@@ -201,9 +212,23 @@ ln -sfn "${CLAUDE_PLUGINS_VENV}" "${HOME}/.claude/security/agent-sdk-venv"
 EOF
 
 
-FROM tools AS plugins
-RUN <<EOF
+# Plugins and skills are fetched from their default branches. The claude binary here only runs
+# `claude plugin` and is not the pinned CLAUDE_CODE_VERSION, so a Claude Code bump does not
+# refetch every plugin and skill. gh and ripwire come from the cli stage.
+FROM npm-tools AS agent-config
+COPY --link --from=cli /home/ /home/
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
+    --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
+    <<EOF
 set -euo pipefail
+echo '[tools]' > "${HOME}/.config/mise/conf.d/50-installer.toml"
+echo 'claude-code = "latest"' >> "${HOME}/.config/mise/conf.d/50-installer.toml"
+mise install claude-code
+# shims are not reliable before the final reshim, so put every tool directory on PATH
+export PATH="$(mise bin-paths | paste -sd:):${PATH}"
+
 claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin marketplace add https://github.com/nowledge-co/community.git
 claude plugin marketplace add pydantic/skills
@@ -225,14 +250,8 @@ claude plugin install modern-go-guidelines@goland-claude-marketplace --scope use
 for p in claude-security redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
-EOF
 
-
-FROM plugins AS skills
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
-RUN --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
-    <<EOF
-set -euo pipefail
 git clone --depth 1 https://github.com/ninehills/skills "${HOME}/git/ninehills-skills"
 python3 "${HOME}/git/ninehills-skills/skills-manager" scenarios install Common
 
@@ -260,7 +279,7 @@ do
 done
 gh extension install github/gh-stack
 
-rm -rf "${HOME}/.codex/skills" "${HOME}/.pi" "${HOME}/.hermes"
+rm -rf "${HOME}/.codex/skills" "${HOME}/.pi" "${HOME}/.hermes" "${HOME}/.cache/gh"
 mkdir -p "${HOME}/.agents/skills"
 for s in "${HOME}"/.claude/skills/*; do
     ln -sfn "$s" "${HOME}/.agents/skills/${s##*/}"
@@ -268,10 +287,111 @@ done
 EOF
 
 
-FROM skills AS final
+FROM mise AS claude
+# renovate: datasource=npm packageName=@anthropic-ai/claude-code
+ARG CLAUDE_CODE_VERSION=2.1.283
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+printf '[tools]\nclaude-code = "%s"\n' "${CLAUDE_CODE_VERSION}" > "${HOME}/.config/mise/conf.d/60-claude.toml"
+mise install
+rm -rf "${HOME}/.local/share/mise/installs/.mise-installs.toml" "${HOME}/.local/share/mise/shims"
+EOF
+
+
+FROM node AS codex
+# renovate: datasource=npm packageName=@openai/codex
+ARG CODEX_VERSION=0.157.1
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+printf '[tools]\n"npm:@openai/codex" = "%s"\n' "${CODEX_VERSION}" > "${HOME}/.config/mise/conf.d/61-codex.toml"
+mise install
+EOF
+
+
+FROM node AS opencli
+# renovate: datasource=npm packageName=@jackwener/opencli
+ARG OPENCLI_VERSION=1.8.7
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+printf '[tools]\n"npm:@jackwener/opencli" = "%s"\n' "${OPENCLI_VERSION}" > "${HOME}/.config/mise/conf.d/62-opencli.toml"
+mise install
+EOF
+
+
+# Chromium's system libraries. playwright-core comes from a bind mount, so the image gets the
+# apt packages without a second copy of node and playwright-core.
+FROM mise AS runtime
+USER root:root
+RUN --mount=type=bind,from=npm-tools,source=/home/nonroot/.local/share/mise/installs,target=/home/nonroot/.local/share/mise/installs \
+    PATH="${HOME}/.local/share/mise/installs/node/latest/bin:${PATH}" \
+    "${HOME}/.local/share/mise/installs/npm-playwright-core/latest/node_modules/.bin/playwright-core" install-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
+USER nonroot:nonroot
+
+
+FROM runtime AS final
+COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
+COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
+COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
+COPY --link --from=mikefarah/yq:4.53.6@sha256:cfc4eee658595834ef304eadb0c3ea721f3b7cb6404ad8b7cb909cc5b5145b23 /usr/bin/yq /usr/local/bin/
+COPY --link --from=ghcr.io/j178/prek:0.5.3@sha256:f27d17a6b21959c5ba7d65039d72e9502c6951e79cbbfae2c1a0498a4859a5cb /prek /usr/local/bin/
+# COPY --link builds each layer as if copying into an empty image, so every directory the
+# destination path creates is root:root 755 unless the copied entries include it. Copying
+# /home/ (not /home/nonroot/), or naming paths from /./home with --parents, carries the source
+# ownership of /home/nonroot and everything below it, and the stages install as nonroot, so no
+# --chown is needed. Stages built FROM mise start with an empty home, so all of it is theirs;
+# stages built FROM node or npm-tools also hold node, so only their own paths are listed.
+# The stages copied whole delete two things after installing, since each copy would replace
+# the previous stage's: .mise-installs.toml, which mise only writes to record installs and does
+# not read for ls, which or reshim, and the shims, which the mise reshim below recreates.
+COPY --link --from=toolchains /home/ /home/
+COPY --link --from=cli /home/ /home/
+COPY --link --from=node /home/ /home/
+COPY --link --parents --from=npm-tools \
+    /./home/nonroot/.local/share/mise/installs/npm-typescript \
+    /./home/nonroot/.local/share/mise/installs/npm-typescript-language-server \
+    /./home/nonroot/.local/share/mise/installs/npm-getpaseo-cli \
+    /./home/nonroot/.local/share/mise/installs/npm-openskills \
+    /./home/nonroot/.local/share/mise/installs/npm-firecrawl-cli \
+    /./home/nonroot/.local/share/mise/installs/npm-playwright-core \
+    /./home/nonroot/.config/mise/conf.d/40-npm-tools.toml \
+    /
+COPY --link --parents --from=browsers /./home/nonroot/.cache/ms-playwright /
+COPY --link --from=venv /home/ /home/
+COPY --link --parents --from=agent-config \
+    /./home/nonroot/.claude \
+    /./home/nonroot/.claude.json \
+    /./home/nonroot/.agents \
+    /./home/nonroot/git \
+    /./home/nonroot/.local/share/gh \
+    /
+COPY --link --parents --from=opencli /./home/nonroot/.local/share/mise/installs/npm-jackwener-opencli /./home/nonroot/.config/mise/conf.d/62-opencli.toml /
+COPY --link --parents --from=codex /./home/nonroot/.local/share/mise/installs/npm-openai-codex /./home/nonroot/.config/mise/conf.d/61-codex.toml /
+COPY --link --from=claude /home/ /home/
+ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
 # sshd sessions do not inherit ENV, so login shells activate mise (tools, venv, GITHUB_PERSONAL_ACCESS_TOKEN)
 # before the non-interactive early return in ~/.bashrc.
-RUN sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 <<EOF
+set -euo pipefail
+cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
+[env]
+_.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
+# github MCP; empty until `gh auth login`
+GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
+CONFIG
+mise reshim
+sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
+EOF
 COPY --link --chmod=755 entrypoint.sh /
 EXPOSE 8964
 ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
+
