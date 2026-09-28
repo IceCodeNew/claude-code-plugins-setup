@@ -339,6 +339,19 @@ mise install
 EOF
 
 
+FROM node AS cf
+# renovate: datasource=npm packageName=cf
+ARG CF_VERSION=1.0.0-beta.5
+RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
+    --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
+    --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
+    <<EOF
+set -euo pipefail
+printf '[tools]\n"npm:cf" = "%s"\n' "${CF_VERSION}" > "${HOME}/.config/mise/conf.d/63-cf.toml"
+mise install
+EOF
+
+
 FROM mise AS runtime
 USER root:root
 # Codex's Linux sandbox runs the first bwrap on PATH; without one it warns and falls back to
@@ -391,6 +404,7 @@ COPY --link --parents --from=agent-config \
     /
 COPY --link --parents --from=opencli /./home/nonroot/.local/share/mise/installs/npm-jackwener-opencli /./home/nonroot/.config/mise/conf.d/62-opencli.toml /
 COPY --link --parents --from=codex /./home/nonroot/.local/share/mise/installs/npm-openai-codex /./home/nonroot/.config/mise/conf.d/61-codex.toml /
+COPY --link --parents --from=cf /./home/nonroot/.local/share/mise/installs/npm-cf /./home/nonroot/.config/mise/conf.d/63-cf.toml /
 COPY --link --from=claude /home/ /home/
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
 # sshd sessions do not inherit ENV, so login shells activate mise (tools, venv, GITHUB_PERSONAL_ACCESS_TOKEN)
@@ -428,6 +442,7 @@ for c in ${bundled}; do
     "${c}" --version
 done
 codex --version
+cf --version
 bwrap --version
 yq --version
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'

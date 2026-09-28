@@ -53,6 +53,7 @@ exec bash
 | `"npm:typescript" = "6"` | typescript 7 是 Go 原生版，包里没有 `tsserver.js`，typescript-language-server 6.0.0 用不了 |
 | `"npm:typescript-language-server"` | typescript-lsp。见下方说明 |
 | `"npm:firecrawl-cli"` | firecrawl |
+| `"npm:cf"` | Cloudflare cf CLI，调用 Cloudflare API、开发和部署 Workers（公开测试版） |
 | `"pypi:nmem-cli"` | nowledge-mem 的 hook 和命令 |
 | `"npm:openskills"` | 第 4 节安装第三方技能 |
 | `"github:Xuanwo/xurl"` | xurl 技能调用的 `xurl` 命令 |
@@ -79,6 +80,7 @@ rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 "npm:typescript" = "6"
 "npm:typescript-language-server" = { version = "latest", depends = ["npm:typescript"], postinstall = 'ln -sfn "$HOME/.local/share/mise/installs/npm-typescript/6/node_modules/typescript" "$MISE_TOOL_INSTALL_PATH/node_modules/typescript"' }
 "npm:firecrawl-cli" = "latest"
+"npm:cf" = "latest"
 "pypi:nmem-cli" = "latest"
 "npm:openskills" = "latest"
 "github:Xuanwo/xurl" = "latest"
@@ -92,6 +94,10 @@ EOF
 
 mise install
 ```
+
+Cloudflare 在 [cf 发布文章](https://blog.cloudflare.com/cloudflare-cf-cli-launch/)中介绍了面向 Agent 的命令搜索 `cf cli search`、默认 JSON 输出和 `cloudflare.config.ts` 配置。[官方仓库](https://github.com/cloudflare/cf)的安装命令是 `npm i -g cf`；这里用 mise 的 `npm:cf` 管理同一个包，要求 Node.js 22 或更高版本。Dockerfile 固定 cf 版本并由 Renovate 更新。
+
+Wrangler 仍按下面的方式按需安装；现有 wrangler skill 和尚未迁移的项目仍可能使用它。
 
 可选工具（按需添加）：
 
@@ -215,6 +221,8 @@ claude plugin list
 
 技能均安装上游当时的最新版本。ninehills 维护的技能用其仓库自带的 Python 脚本安装；ripwire 的技能用 ripwire 发布包自带的安装脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
 
+截至 2026-09-29，[cloudflare/cf](https://github.com/cloudflare/cf) 仓库没有 `SKILL.md`，无需额外安装 cf 专用技能。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，因此这里不再重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "你的任务"` 发现命令。
+
 ### 4.1 ninehills 技能（官方 skills-manager 脚本）
 
 脚本按「场景」整组安装，用软链接把技能装进 `~/.codex/skills`、`~/.pi/agent/skills`、`~/.claude/skills`、`~/.hermes/skills` 四个目录，所以仓库要克隆到一个长期保留的位置。这里用 Common 场景（33 个技能，含 better-goal、hunt、karpathy-guidelines、learn、pua、read、review-code、tdd、think、write）。
@@ -310,12 +318,14 @@ gh extension install github/gh-stack
 | telegram | 在 claude 里执行 `/telegram:configure <bot token>`，然后用 `claude --channels plugin:telegram@claude-plugins-official` 启动 |
 | nowledge-mem | 本机运行 Mem 时不用配置；连远程服务器见下 |
 | cloudflare wrangler（可选） | `wrangler login`；没有浏览器时设置 `CLOUDFLARE_API_TOKEN`，turnstile 还要 `CLOUDFLARE_ACCOUNT_ID` |
+| Cloudflare cf CLI | `cf auth login`；SSH/容器中用 `cf auth login --no-browser`，按提示在本机浏览器完成设备授权；自动化可设置 `CLOUDFLARE_API_TOKEN` |
 | remember、security-guidance、skill-creator | 沿用 claude 本身的登录，不用单独配置 |
 
 ```bash
 gh auth login
 coderabbit auth login
 firecrawl login --browser
+cf auth login --no-browser
 
 # nowledge-mem 远程模式
 nmem config client set url "https://your-server"   # 换成你的服务器地址
@@ -325,13 +335,15 @@ nmem status
 
 改完 `[env]` 或登录 gh 之后，要从新开的 shell 里重启 claude，github MCP 才能拿到 token。
 
+cf 的 OAuth 登录与 Cloudflare MCP 授权分别进行。`CLOUDFLARE_API_TOKEN` 优先于 cf 保存的 OAuth 凭据；要使用 OAuth 登录，先取消设置该变量。凭据只在运行时配置，不写入 Dockerfile。
+
 ---
 
 ## 6. 验证
 
 ```bash
 # 工具都在 PATH 上；除 perl 外都来自 mise
-for c in perl jq gh node bun nmem firecrawl coderabbit \
+for c in perl jq gh node bun nmem firecrawl coderabbit cf \
          pyright-langserver typescript-language-server gopls rust-analyzer cargo claude; do
   printf '%-28s %s\n' "$c" "$(command -v $c || echo MISSING)"
 done
@@ -349,6 +361,9 @@ rustc --print sysroot | xargs -I{} test -d {}/lib/rustlib/src/rust/library && ec
 gh auth status
 coderabbit auth status
 firecrawl --status
+cf --version
+cf cli search "list zones"   # 命令发现，不执行 API 操作
+cf auth whoami              # 登录后核对身份
 nmem status
 openskills list
 find ~/.claude/skills -maxdepth 1 -type l | wc -l   # ninehills Common 场景的 33 个软链接
