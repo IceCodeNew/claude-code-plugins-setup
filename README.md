@@ -10,10 +10,6 @@ Claude Code 插件清单，以及用 mise/uv 管理依赖的安装手册
 
 容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。nonroot 有免密 sudo，需要 root 时用 `sudo -i`。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。
 
-镜像还通过 mise 安装 [Cloudflare cf CLI](https://github.com/cloudflare/cf)（npm 包 `cf`，目前为公开测试版），用于发现和调用 Cloudflare API、开发和部署 Workers。CLI 仓库目前没有独立 Agent skill；[官方技能](https://github.com/cloudflare/skills)已由 Claude Code 的 `cloudflare` 插件提供。安装、认证和验证见手册第 2、4、5、6 节。
-
-Dockerfile 的 `smoke` 阶段包含 `cf --version` 检查；CI 在推送镜像前构建该目标。本地可用 `docker buildx build --target smoke --file build/Dockerfile build` 运行检查。
-
 本地构建：
 
 ```bash
