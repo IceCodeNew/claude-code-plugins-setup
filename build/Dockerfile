@@ -55,7 +55,7 @@ RUN extrepo enable mise \
         plocate procps psmisc px \
         ripgrep rsync \
         sudo \
-        tmux \
+        tmux vim \
     && rm -f /etc/ssh/ssh_host_* \
     && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nonroot
 COPY --link <<sshd_config /etc/ssh/sshd_config.d/nonroot.conf
@@ -443,6 +443,8 @@ for c in ${bundled}; do
 done
 codex --version
 cf --version
+paseo --version
+vim --version >/dev/null
 bwrap --version
 yq --version
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
