@@ -6,7 +6,7 @@
 # Stages that install "latest" versions (toolchains, cli, npm-tools, browsers, venv,
 # agent-config) rebuild only when their own instructions or the mise stage change.
 
-FROM icecodexi/python:debian-nonroot@sha256:5274c854679093691783e11fa18a64db0b887fa6be551e779c417fffc2fb4342 AS secure-mirrors
+FROM icecodexi/python:debian-nonroot@sha256:b0e6f00d996a847f7bc38d83d7684298a59afc81cf752037ab8f7d15b1c7c9c0 AS secure-mirrors
 COPY --link <<npm <<pip <<uv /
 
 registry=https://npm.flatt.tech/
@@ -36,7 +36,7 @@ RUN mkdir -p \
 FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv-bin
 
 
-FROM icecodexi/python:debian-nonroot@sha256:5274c854679093691783e11fa18a64db0b887fa6be551e779c417fffc2fb4342 AS mise
+FROM icecodexi/python:debian-nonroot@sha256:b0e6f00d996a847f7bc38d83d7684298a59afc81cf752037ab8f7d15b1c7c9c0 AS mise
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root:root
 # git, curl and lsof are not in the mise registry; perl comes with Debian.
