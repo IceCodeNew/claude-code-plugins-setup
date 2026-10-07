@@ -2,7 +2,7 @@
 
 生成日期：2026-09-25。环境：Linux x64，claude 2.1.281，mise 2026.9.12。
 
-插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills），以及 fff MCP 和本仓库搜索技能。
+插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills），以及 fff MCP 和独立维护的搜索技能。
 
 本文面向一台全新的机器。命令行工具由 mise 管理，写在 `~/.config/mise/config.toml`；Python 包由 uv 装进 Claude 插件共用的 venv；git、curl、lsof 由系统包管理器安装。
 
@@ -301,9 +301,9 @@ openskills update
 gh extension install github/gh-stack
 ```
 
-### 4.4 fff MCP 与本仓库搜索技能
+### 4.4 fff MCP 与搜索技能
 
-[fff](https://github.com/dmtrKovalenko/fff) 提供本地文件查找和内容搜索。这里采用 fff 官方 MCP。截至 2026-10-07，上游没有提供 Claude Code skill 或 hooks 安装；`searching-with-fff` 和 `routing.md` 是本仓库原创内容，不复用已有的同名技能。技能使用通用 MCP 工具名和宿主提供的文件读取、连接管理能力；Claude Code 的具体操作保留在本安装手册中。
+[fff](https://github.com/dmtrKovalenko/fff) 提供本地文件查找和内容搜索。这里采用 fff 官方 MCP；社区技能和 `routing.md` 统一在 [IceCodeNew/searching-with-fff](https://github.com/IceCodeNew/searching-with-fff) 维护，本仓库只负责安装。通用技能目录不含 Amp 专属说明或配置；Amp 的 adapter 单独位于独立仓库的 `amp/`，其他 harness 不安装它。Claude Code 的具体操作保留在本安装手册中。
 
 官方安装脚本只安装二进制并打印注册建议，不会自动注册 MCP 或更改 Claude 的工具选择。下面固定已审查的官方脚本 commit 和 SHA256；脚本内固定 v0.11.0，并校验对应平台的二进制。Linux amd64/arm64 使用静态 musl 可执行文件，不需要再装 Rust 或 Python/Node 搜索绑定。升级时要重新审查脚本和内置版本、校验值，不能只替换 URL。
 
@@ -318,14 +318,21 @@ gh extension install github/gh-stack
 )
 "$HOME/.local/bin/fff-mcp" --version
 claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
-openskills install IceCodeNew/claude-code-plugins-setup/skills/searching-with-fff -g -y
 ```
 
-开发本仓库中的技能时，也可以从本地 checkout 安装：
+技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=b7940213ab4fd38fef3c41677a57366290b802ce`（[技能 PR #1](https://github.com/IceCodeNew/searching-with-fff/pull/1)），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
 
 ```bash
-# 在本仓库中执行；openskills 会复制技能及 routing.md，不要求保留 checkout
-openskills install "$(git rev-parse --show-toplevel)/skills/searching-with-fff" -g -y
+(
+  set -euo pipefail
+  checkout=$(mktemp -d "${TMPDIR:-/tmp}/fff-skill.XXXXXXXX")
+  trap 'rm -rf "$checkout"' EXIT
+  git -C "$checkout" init -q
+  git -C "$checkout" fetch --depth 1 https://github.com/IceCodeNew/searching-with-fff.git b7940213ab4fd38fef3c41677a57366290b802ce
+  git -C "$checkout" checkout --detach -q FETCH_HEAD
+  test "$(git -C "$checkout" rev-parse HEAD)" = b7940213ab4fd38fef3c41677a57366290b802ce
+  openskills install "$checkout/searching-with-fff" -g -y
+)
 ```
 
 MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。在目标 worktree 中启动 Claude，新会话中用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。`--no-update-check` 关闭服务的自动更新检查，更新由安装流程负责。
@@ -356,7 +363,7 @@ claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 
 当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
 
-更新技能可用 `openskills update`，本地开发则重新执行本地安装命令。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+技能 PR #1 合并后，也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
 
 ### 4.5 重新加载
 

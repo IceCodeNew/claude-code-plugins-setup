@@ -365,11 +365,21 @@ EOF
 
 
 FROM mise AS fff-skill
-COPY --link --chown=65532:65532 skills/searching-with-fff/ /tmp/searching-with-fff/
-RUN mkdir -p "${HOME}/.claude/skills" "${HOME}/.agents/skills" \
-    && cp -R /tmp/searching-with-fff "${HOME}/.claude/skills/searching-with-fff" \
-    && ln -s "${HOME}/.claude/skills/searching-with-fff" "${HOME}/.agents/skills/searching-with-fff" \
-    && rm -r /tmp/searching-with-fff
+ARG FFF_SKILL_REVISION=b7940213ab4fd38fef3c41677a57366290b802ce
+RUN <<EOF
+set -euo pipefail
+checkout=$(mktemp -d /tmp/fff-skill.XXXXXXXX)
+trap 'rm -rf "$checkout"' EXIT
+git -C "$checkout" init -q
+git -C "$checkout" fetch --depth 1 https://github.com/IceCodeNew/searching-with-fff.git "$FFF_SKILL_REVISION"
+git -C "$checkout" checkout --detach -q FETCH_HEAD
+test "$(git -C "$checkout" rev-parse HEAD)" = "$FFF_SKILL_REVISION"
+mkdir -p "${HOME}/.claude/skills" "${HOME}/.agents/skills"
+cp -R "$checkout/searching-with-fff" "${HOME}/.claude/skills/searching-with-fff"
+# Amp's adapter lives outside the generic skill directory and must not enter this image.
+test ! -e "${HOME}/.claude/skills/searching-with-fff/mcp.json"
+ln -s "${HOME}/.claude/skills/searching-with-fff" "${HOME}/.agents/skills/searching-with-fff"
+EOF
 
 
 FROM mise AS runtime
@@ -461,6 +471,11 @@ set -euo pipefail
 claude --version
 fff-mcp --version
 python3 /tmp/test-fff.py
+test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
+test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
+test ! -e "${HOME}/.claude/skills/searching-with-fff/mcp.json"
+test ! -e "${HOME}/.claude/skills/searching-with-fff/amp"
+test "$(readlink "${HOME}/.agents/skills/searching-with-fff")" = "${HOME}/.claude/skills/searching-with-fff"
 test -z "$(mise ls 2>&1 >/dev/null)"
 # COPY --link into a path below /home/nonroot would leave root-owned directories behind
 test -z "$(find "${HOME}" -xdev ! -user nonroot -print -quit)"
