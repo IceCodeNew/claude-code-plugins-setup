@@ -320,7 +320,7 @@ gh extension install github/gh-stack
 claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
 ```
 
-技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=b7940213ab4fd38fef3c41677a57366290b802ce`（[技能 PR #1](https://github.com/IceCodeNew/searching-with-fff/pull/1)），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
+技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
 
 ```bash
 (
@@ -328,9 +328,9 @@ claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" 
   checkout=$(mktemp -d "${TMPDIR:-/tmp}/fff-skill.XXXXXXXX")
   trap 'rm -rf "$checkout"' EXIT
   git -C "$checkout" init -q
-  git -C "$checkout" fetch --depth 1 https://github.com/IceCodeNew/searching-with-fff.git b7940213ab4fd38fef3c41677a57366290b802ce
+  git -C "$checkout" fetch --depth 1 https://github.com/IceCodeNew/searching-with-fff.git 6c2e4675ffe7635e02f5d4f9c6b4793b4863b151
   git -C "$checkout" checkout --detach -q FETCH_HEAD
-  test "$(git -C "$checkout" rev-parse HEAD)" = b7940213ab4fd38fef3c41677a57366290b802ce
+  test "$(git -C "$checkout" rev-parse HEAD)" = 6c2e4675ffe7635e02f5d4f9c6b4793b4863b151
   openskills install "$checkout/searching-with-fff" -g -y
 )
 ```
@@ -363,7 +363,7 @@ claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 
 当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
 
-技能 PR #1 合并后，也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
 
 ### 4.5 重新加载
 

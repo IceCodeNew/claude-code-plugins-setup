@@ -365,7 +365,7 @@ EOF
 
 
 FROM mise AS fff-skill
-ARG FFF_SKILL_REVISION=b7940213ab4fd38fef3c41677a57366290b802ce
+ARG FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151
 RUN <<EOF
 set -euo pipefail
 checkout=$(mktemp -d /tmp/fff-skill.XXXXXXXX)
