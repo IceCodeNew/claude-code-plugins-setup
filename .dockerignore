@@ -1,0 +1,4 @@
+# Only image inputs belong in the build context.
+**
+!build/
+!build/**

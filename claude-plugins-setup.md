@@ -2,7 +2,7 @@
 
 生成日期：2026-09-25。环境：Linux x64，claude 2.1.281，mise 2026.9.12。
 
-插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills）。
+插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills），以及 fff MCP 和独立维护的搜索技能。
 
 本文面向一台全新的机器。命令行工具由 mise 管理，写在 `~/.config/mise/config.toml`；Python 包由 uv 装进 Claude 插件共用的 venv；git、curl、lsof 由系统包管理器安装。
 
@@ -301,7 +301,71 @@ openskills update
 gh extension install github/gh-stack
 ```
 
-### 4.4 重新加载
+### 4.4 fff MCP 与搜索技能
+
+[fff](https://github.com/dmtrKovalenko/fff) 提供本地文件查找和内容搜索。这里采用 fff 官方 MCP；社区技能和 `routing.md` 统一在 [IceCodeNew/searching-with-fff](https://github.com/IceCodeNew/searching-with-fff) 维护，本仓库只负责安装。通用技能目录不含 Amp 专属说明或配置；Amp 的 adapter 单独位于独立仓库的 `amp/`，其他 harness 不安装它。Claude Code 的具体操作保留在本安装手册中。
+
+官方安装脚本只安装二进制并打印注册建议，不会自动注册 MCP 或更改 Claude 的工具选择。下面固定已审查的官方脚本 commit 和 SHA256；脚本内固定 v0.11.0，并校验对应平台的二进制。Linux amd64/arm64 使用静态 musl 可执行文件，不需要再装 Rust 或 Python/Node 搜索绑定。升级时要重新审查脚本和内置版本、校验值，不能只替换 URL。
+
+```bash
+(
+  set -euo pipefail
+  installer=$(mktemp "${TMPDIR:-/tmp}/install-fff.XXXXXXXX.sh")
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/dmtrKovalenko/fff/c188e7a8f90e4ee4aabe18f93d5869dfb4289f12/install-mcp.sh -o "$installer"
+  printf '%s  %s\n' 510ecb5a5151ded8f08efedfc73898464a8470ed8c256853db31a19216a25546 "$installer" | sha256sum -c -
+  bash "$installer"
+)
+"$HOME/.local/bin/fff-mcp" --version
+claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
+```
+
+技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
+
+```bash
+(
+  set -euo pipefail
+  checkout=$(mktemp -d "${TMPDIR:-/tmp}/fff-skill.XXXXXXXX")
+  trap 'rm -rf "$checkout"' EXIT
+  git -C "$checkout" init -q
+  git -C "$checkout" fetch --depth 1 https://github.com/IceCodeNew/searching-with-fff.git 6c2e4675ffe7635e02f5d4f9c6b4793b4863b151
+  git -C "$checkout" checkout --detach -q FETCH_HEAD
+  test "$(git -C "$checkout" rev-parse HEAD)" = 6c2e4675ffe7635e02f5d4f9c6b4793b4863b151
+  openskills install "$checkout/searching-with-fff" -g -y
+)
+```
+
+MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。在目标 worktree 中启动 Claude，新会话中用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。`--no-update-check` 关闭服务的自动更新检查，更新由安装流程负责。
+
+技能 description 用于模型判断是否需要加载技能；正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些都是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
+
+#### 减少无关会话的影响
+
+Claude Code 没有像 skill description 那样按关键词或行为自动启用单个 MCP server 的官方机制。MCP 注册、连接和工具定义加载是不同阶段：
+
+| 方法 | 能解决什么 | 限制 |
+|---|---|---|
+| local/project scope | 只在所选项目提供 fff，避免其他项目加载 | local 私有配置保存在 `~/.claude.json` 的项目记录；project 写入 `.mcp.json`，需要项目信任/审批 |
+| `/mcp` 中 Disable/Enable | user-scope 服务按项目持久禁用，需要时重新启用 | skill 不会自行启用被禁用的 server |
+| Tool Search | 按需加载完整工具定义 | 工具名称和 server instructions 仍会加载；自定义 API 地址默认回退到预加载，代理必须兼容 tool reference 才能开启 |
+| `MCP_DISCOVERY_CACHE=1`（可选） | 缓存发现结果，允许延迟连接到首次使用 | 主要减少启动/连接工作，不等于省掉工具定义上下文；不是关键词触发 |
+
+默认按上面命令注册 user scope，适用于所有项目。如果只在一个项目使用，先移除已有 user 注册，再在目标项目执行：
+
+```bash
+claude mcp remove --scope user fff
+# 在目标项目中执行；私有 local scope
+claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
+# 要与团队共享时，把上一条的 --scope local 换成 --scope project；不要两条都执行
+```
+
+单次会话完全不加载已注册 MCP，可用 `claude --strict-mcp-config --mcp-config '{"mcpServers":{}}'`；这也会排除其他 MCP，不适合作为日常安装默认值。
+
+当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
+
+也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+
+### 4.5 重新加载
 
 在已经运行的 claude 会话里执行 `/reload-skills`，新装的技能就能用；新开的会话会自动加载。
 
@@ -342,7 +406,7 @@ cf 的 OAuth 登录与 Cloudflare MCP 授权分别进行。`CLOUDFLARE_API_TOKEN
 ## 6. 验证
 
 ```bash
-# 工具都在 PATH 上；除 perl 外都来自 mise
+# mise 工具在 PATH 上；perl 来自系统，fff 用绝对路径验证
 for c in perl jq gh node bun nmem firecrawl coderabbit cf \
          pyright-langserver typescript-language-server gopls rust-analyzer cargo claude; do
   printf '%-28s %s\n' "$c" "$(command -v $c || echo MISSING)"
@@ -366,6 +430,10 @@ cf cli search "list zones"   # 命令发现，不执行 API 操作
 cf auth whoami              # 登录后核对身份
 nmem status
 openskills list
+"$HOME/.local/bin/fff-mcp" --version
+claude mcp get fff
+# 在本仓库中运行真实 MCP 搜索验证：两个独立 Git 根目录，其中一个从子目录启动
+python3 -B build/test-fff.py
 find ~/.claude/skills -maxdepth 1 -type l | wc -l   # ninehills Common 场景的 33 个软链接
 gh stack --help | head -1
 ```
@@ -373,7 +441,7 @@ gh stack --help | head -1
 启动 claude 之后：
 
 ```text
-/mcp                  # context7、github、linear、cloudflare、telegram 应显示 connected
+/mcp                  # fff 及已完成认证的其他 server 应显示 connected
 /remember:doctor      # remember 插件自检
 /plugin               # 插件和启用状态
 /skills               # 技能列表，第 4 节装的技能应在其中
