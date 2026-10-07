@@ -3,17 +3,20 @@ Claude Code 插件清单，以及用 mise/uv 管理依赖的安装手册
 
 - `claude-plugins-setup.md`：在一台全新机器上手动安装的步骤
 - `build/Dockerfile`：同一套环境的 Docker 镜像 `claude-dev`
+- `skills/searching-with-fff/`：本仓库维护的 fff 搜索技能和按任务选择工具的 routing 文档
 
 ## claude-dev 镜像
 
 镜像按 `claude-plugins-setup.md` 第 1 到第 4 节构建：mise 工具、共享 Python venv、Claude Code 插件和第三方技能都已装好。另外用 mise 装了 `@getpaseo/cli`（命令 `paseo`）、playwright-core 和它的 Chromium（含系统依赖）；`vim` 由 apt 安装。Chromium 供无头浏览器测试使用。插件只装给 Claude Code；技能装在 `~/.claude/skills`，并逐个软链接到 Codex 读取的 `~/.agents/skills`。
+
+镜像还通过官方安装脚本安装 fff MCP v0.11.0，注册为 Claude Code 的 user-scope stdio server `fff`，并安装本仓库的 `searching-with-fff` 技能。技能引导仓库搜索，不拦截 Grep/Glob 或 shell 命令；不新增 hooks，不写入 `CLAUDE.md`，不改变全局 Tool Search 配置。需要避免无关项目加载 fff 时，见手册 4.4 节的作用域和启停说明。技能也链接给 Codex，但镜像不为 Codex 注册 fff MCP。
 
 容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。nonroot 有免密 sudo，需要 root 时用 `sudo -i`。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。
 
 本地构建：
 
 ```bash
-docker buildx build --load -t claude-dev --file build/Dockerfile build
+docker buildx build --load -t claude-dev --file build/Dockerfile .
 ```
 
 运行并登录：

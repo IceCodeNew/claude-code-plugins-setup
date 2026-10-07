@@ -352,6 +352,26 @@ mise install
 EOF
 
 
+FROM mise AS fff
+RUN <<EOF
+set -euo pipefail
+# The upstream script pins the release and both Linux checksums. Review a new script before updating this pin.
+curl -fsSL https://raw.githubusercontent.com/dmtrKovalenko/fff/c188e7a8f90e4ee4aabe18f93d5869dfb4289f12/install-mcp.sh -o /tmp/install-fff.sh
+echo '510ecb5a5151ded8f08efedfc73898464a8470ed8c256853db31a19216a25546  /tmp/install-fff.sh' | sha256sum -c -
+bash /tmp/install-fff.sh
+rm /tmp/install-fff.sh
+"${HOME}/.local/bin/fff-mcp" --version
+EOF
+
+
+FROM mise AS fff-skill
+COPY --link --chown=65532:65532 skills/searching-with-fff/ /tmp/searching-with-fff/
+RUN mkdir -p "${HOME}/.claude/skills" "${HOME}/.agents/skills" \
+    && cp -R /tmp/searching-with-fff "${HOME}/.claude/skills/searching-with-fff" \
+    && ln -s "${HOME}/.claude/skills/searching-with-fff" "${HOME}/.agents/skills/searching-with-fff" \
+    && rm -r /tmp/searching-with-fff
+
+
 FROM mise AS runtime
 USER root:root
 # Codex's Linux sandbox runs the first bwrap on PATH; without one it warns and falls back to
@@ -406,6 +426,12 @@ COPY --link --parents --from=opencli /./home/nonroot/.local/share/mise/installs/
 COPY --link --parents --from=codex /./home/nonroot/.local/share/mise/installs/npm-openai-codex /./home/nonroot/.config/mise/conf.d/61-codex.toml /
 COPY --link --parents --from=cf /./home/nonroot/.local/share/mise/installs/npm-cf /./home/nonroot/.config/mise/conf.d/63-cf.toml /
 COPY --link --from=claude /home/ /home/
+COPY --link --parents --from=fff /./home/nonroot/.local/bin/fff-mcp /
+COPY --link --parents --from=fff-skill \
+    /./home/nonroot/.claude/skills/searching-with-fff \
+    /./home/nonroot/.agents/skills/searching-with-fff \
+    /
+ENV PATH="${HOME}/.local/bin:${PATH}"
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
 # sshd sessions do not inherit ENV, so login shells activate mise (tools, venv, GITHUB_PERSONAL_ACCESS_TOKEN)
 # before the non-interactive early return in ~/.bashrc.
@@ -418,9 +444,10 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
+claude mcp add --scope user --transport stdio fff -- "${HOME}/.local/bin/fff-mcp" --no-update-check
 sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
 EOF
-COPY --link --chmod=755 entrypoint.sh /
+COPY --link --chmod=755 build/entrypoint.sh /
 EXPOSE 8964
 ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 
@@ -428,9 +455,12 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
+COPY --link --chmod=644 build/test-fff.py /tmp/test-fff.py
 RUN <<EOF
 set -euo pipefail
 claude --version
+fff-mcp --version
+python3 /tmp/test-fff.py
 test -z "$(mise ls 2>&1 >/dev/null)"
 # COPY --link into a path below /home/nonroot would leave root-owned directories behind
 test -z "$(find "${HOME}" -xdev ! -user nonroot -print -quit)"

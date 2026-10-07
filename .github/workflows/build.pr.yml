@@ -9,6 +9,8 @@ on:
     paths:
       - ".github/workflows/build.pr.yml"
       - "build/**"
+      - "skills/**"
+      - ".dockerignore"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -43,8 +45,8 @@ jobs:
       - name: Build and smoke test
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: "{{defaultContext}}:build"
-          file: Dockerfile
+          context: "{{defaultContext}}"
+          file: build/Dockerfile
           target: smoke
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
