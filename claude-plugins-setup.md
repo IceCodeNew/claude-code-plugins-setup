@@ -4,7 +4,7 @@
 
 插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills），以及 fff MCP 和独立维护的搜索技能。
 
-本文面向一台全新的机器。命令行工具由 mise 管理，写在 `~/.config/mise/config.toml`；Python 包由 uv 装进 Claude 插件共用的 venv；git、curl、lsof 由系统包管理器安装。
+本文面向一台全新的机器。命令行工具由 mise 管理，写在 `~/.config/mise/config.toml`；Python 包由 uv 装进 Claude 插件共用的 venv；git、curl、lsof、tmux 由系统包管理器安装。
 
 按顺序执行第 1 到第 6 节。每个代码块都能单独复制执行。
 
@@ -16,9 +16,9 @@ mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。ralph-loop �
 
 ```bash
 # Debian / Ubuntu
-sudo apt update && sudo apt install -y git curl lsof
+sudo apt update && sudo apt install -y git curl lsof tmux
 # Fedora
-# sudo dnf install -y git curl lsof
+# sudo dnf install -y git curl lsof tmux
 ```
 
 安装 mise 并在 shell 里激活：
@@ -43,10 +43,10 @@ exec bash
 
 | 条目 | 用途 |
 |---|---|
-| `node = "26"` | firecrawl 的 npx 兜底、session-report、superpowers、pyright 运行时、modern-web-guidance |
+| `node = "26"` | firecrawl 的 npx 兜底、session-report、superpowers、claude-session-driver、pyright 运行时、modern-web-guidance |
 | `bun` | telegram 的 stdio MCP |
 | `uv` | 创建和管理共享 Python venv（2.2 节） |
-| `gh`、`jq` | code-review、commit-commands、pr-review-toolkit、coderabbit、remember、ralph-loop |
+| `gh`、`jq` | code-review、commit-commands、pr-review-toolkit、coderabbit、remember、ralph-loop、double-shot-latte |
 | `claude-code` | Claude Code 本身；remember、security-guidance、skill-creator 也会调用 `claude` |
 | `go`、`"go:golang.org/x/tools/gopls"` | gopls-lsp |
 | `rust`（带 `rust-src`、`rust-analyzer` 组件） | rust-analyzer-lsp。mise 按 minimal profile 装的 rust 没有 rust-src，rust-analyzer 无法分析标准库；rust-analyzer 用 rustup 组件，版本和工具链一致 |
@@ -172,10 +172,11 @@ claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin marketplace add https://github.com/nowledge-co/community.git
 claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
+claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace update
 ```
 
-安装全部 31 个插件：
+安装全部 33 个插件：
 
 ```bash
 for p in \
@@ -190,7 +191,11 @@ done
 claude plugin install nowledge-mem@nowledge-community --scope user
 claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
+claude plugin install double-shot-latte@superpowers-marketplace --scope user
+claude plugin install claude-session-driver@superpowers-marketplace --scope user
 ```
+
+`double-shot-latte` 的 Stop hook 会调用 Claude 判断是否继续，默认使用 Haiku，可能增加调用费用。`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
 
 在脚本或管道里跑、stdin/stdout 不是终端时，给需要确认的安装加 `-y`。
 
