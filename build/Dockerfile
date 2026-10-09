@@ -155,7 +155,7 @@ FROM mise AS node
 # renovate: datasource=node-version packageName=node
 ARG NODE_VERSION=26.10.0
 # renovate: datasource=github-releases packageName=pnpm/pnpm
-ARG PNPM_VERSION=12.7.0
+ARG PNPM_VERSION=12.10.0
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
@@ -302,7 +302,7 @@ EOF
 
 FROM mise AS claude
 # renovate: datasource=npm packageName=@anthropic-ai/claude-code
-ARG CLAUDE_CODE_VERSION=2.1.283
+ARG CLAUDE_CODE_VERSION=2.1.291
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
@@ -316,7 +316,7 @@ EOF
 
 FROM node AS codex
 # renovate: datasource=npm packageName=@openai/codex
-ARG CODEX_VERSION=0.157.1
+ARG CODEX_VERSION=0.160.1
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -342,7 +342,7 @@ EOF
 
 FROM node AS cf
 # renovate: datasource=npm packageName=cf
-ARG CF_VERSION=1.0.0-beta.5
+ARG CF_VERSION=1.0.0-beta.12
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -401,7 +401,7 @@ FROM runtime AS final
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
 COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
-COPY --link --from=mikefarah/yq:4.53.6@sha256:cfc4eee658595834ef304eadb0c3ea721f3b7cb6404ad8b7cb909cc5b5145b23 /usr/bin/yq /usr/local/bin/
+COPY --link --from=mikefarah/yq:4.54.1@sha256:4b3d9475d65571d28cbb19544d3820ec2945e4c8b2f18279394282b8dc3a592e /usr/bin/yq /usr/local/bin/
 COPY --link --from=ghcr.io/j178/prek:0.5.3@sha256:f27d17a6b21959c5ba7d65039d72e9502c6951e79cbbfae2c1a0498a4859a5cb /prek /usr/local/bin/
 # COPY --link builds each layer as if copying into an empty image, so every directory the
 # destination path creates is root:root 755 unless the copied entries include it. Copying
