@@ -277,6 +277,7 @@ for s in \
   Xuanwo/xurl/skills/xurl \
   ninehills/skills/tech-doc-style-chinese \
   openclaw/openclaw/.agents/skills/test-audit \
+  tommy0103/better-readme-skill/skills/better-readme \
   https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
 do
   openskills install "$s" -g -y

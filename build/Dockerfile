@@ -285,6 +285,7 @@ for s in \
     Xuanwo/xurl/skills/xurl \
     ninehills/skills/tech-doc-style-chinese \
     openclaw/openclaw/.agents/skills/test-audit \
+    tommy0103/better-readme-skill/skills/better-readme \
     https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
 do
     openskills install "$s" -g -y
@@ -476,6 +477,9 @@ test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
 test ! -e "${HOME}/.claude/skills/searching-with-fff/mcp.json"
 test ! -e "${HOME}/.claude/skills/searching-with-fff/amp"
 test "$(readlink "${HOME}/.agents/skills/searching-with-fff")" = "${HOME}/.claude/skills/searching-with-fff"
+test -r "${HOME}/.claude/skills/better-readme/SKILL.md"
+test -r "${HOME}/.claude/skills/better-readme/references/art-of-readme.md"
+test "$(readlink "${HOME}/.agents/skills/better-readme")" = "${HOME}/.claude/skills/better-readme"
 test -z "$(mise ls 2>&1 >/dev/null)"
 # COPY --link into a path below /home/nonroot would leave root-owned directories behind
 test -z "$(find "${HOME}" -xdev ! -user nonroot -print -quit)"
