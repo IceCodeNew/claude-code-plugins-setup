@@ -173,10 +173,11 @@ claude plugin marketplace add https://github.com/nowledge-co/community.git
 claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
+claude plugin marketplace add typesafe-ai/skills
 claude plugin marketplace update
 ```
 
-安装全部 33 个插件：
+安装全部 34 个插件：
 
 ```bash
 for p in \
@@ -193,9 +194,12 @@ claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
 claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
+claude plugin install typesafe@typesafe-ai --scope user
 ```
 
 `double-shot-latte` 的 Stop hook 会调用 Claude 判断是否继续，默认使用 Haiku，可能增加调用费用。`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
+
+`typesafe` 来自 [TypeSafe 官方技能仓库](https://github.com/typesafe-ai/skills)，为 Claude Code 提供 TypeSafe API 的使用说明；可用 `/typesafe:typesafe-ai` 调用。更新时运行 `claude plugin marketplace update typesafe-ai` 和 `claude plugin update typesafe@typesafe-ai`。使用 TypeSafe API 时需另行配置 API key，安装插件无需 API key。
 
 在脚本或管道里跑、stdin/stdout 不是终端时，给需要确认的安装加 `-y`。
 
