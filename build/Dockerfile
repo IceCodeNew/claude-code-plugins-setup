@@ -246,6 +246,7 @@ claude plugin marketplace add https://github.com/nowledge-co/community.git
 claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
+claude plugin marketplace add typesafe-ai/skills
 
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare code-review \
@@ -261,6 +262,7 @@ claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
 claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
+claude plugin install typesafe@typesafe-ai --scope user
 
 for p in claude-security redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
