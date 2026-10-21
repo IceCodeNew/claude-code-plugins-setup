@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from .common import commands, deny, run
+from _hook_common import commands, deny, run
 
 
 def check(payload):

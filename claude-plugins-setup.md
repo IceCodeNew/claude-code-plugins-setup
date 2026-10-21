@@ -458,32 +458,31 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
 
 #### 脚本入口与安装
 
-[build/hooks](build/hooks) 提供按职责划分的 shell 入口，JSON 从 stdin 读入，结果写到 stdout。脚本不依赖安装本仓库的 Python 包；`claude_safety/` 只保存共用解析器和安全判断，必须与 `.sh` 文件一同保留。Python 与 `bashlex` 仍是运行依赖，不能仅复制单个入口文件。
+[build/hooks](build/hooks) 按职责提供可直接执行的 Python hook，JSON 从 stdin 读入，结果写到 stdout。每个 hook 只负责一项策略；`_hook_common.py` 仅复用 shell 解析和 hook 协议，不分发或组合策略。不需要安装本仓库的 Python 包，也没有仅转调 Python 的 shell 包装。复制使用时保留整个 hooks 目录，依赖为 Python 与 `bashlex`。
 
 | 脚本 | 职责 | 使用事件 |
 |---|---|---|
-| `block-rm.sh` | 各模式拒绝执行 shell `rm`，要求 `trash-put` | 工具执行前 |
-| `protected-branches.sh` | 统一检查 push、PR 合并和指定 PR 的会话授权 | 工具执行前、用户提交消息 |
-| `require-tmux.sh` | dev server 使用 tmux | 工具执行前 |
-| `post-edit-check.sh` | 编辑后文件级诊断 | 写入或编辑后 |
-| `configure-claude.sh` | 仅配置 Claude Code 的 hook 注册及启停 | 手动执行或镜像启动 |
+| `block-rm.py` | 各模式拒绝执行 shell `rm`，要求 `trash-put` | 工具执行前 |
+| `protected-branches.py` | 统一检查 push、PR 合并和指定 PR 的会话授权 | 工具执行前、用户提交消息 |
+| `require-tmux.py` | dev server 使用 tmux | 工具执行前 |
+| `post-edit-check.py` | 编辑后文件级诊断 | 写入或编辑后 |
+| `configure-claude.py` | 仅配置 Claude Code 的 hook 注册及启停 | 手动执行或镜像启动 |
 
 镜像将脚本和解析器放在 `/opt/claude-safety`，不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
 
 ```bash
 uv venv --python 3.13 "$HOME/.local/share/claude-hooks-venv"
 uv pip install --python "$HOME/.local/share/claude-hooks-venv/bin/python" 'bashlex==0.18'
-export CLAUDE_HOOK_PYTHON="$HOME/.local/share/claude-hooks-venv/bin/python"
-sh build/hooks/configure-claude.sh
+"$HOME/.local/share/claude-hooks-venv/bin/python" -E -s build/hooks/configure-claude.py
 ```
 
-将 `CLAUDE_HOOK_PYTHON` 加入启动 harness 的 shell 环境，避免重启后找不到依赖。脚本默认先找相邻的镜像 venv，找不到时使用 `python3`；该环境需要安装 `bashlex`。Python 3.13 是镜像验证使用的版本。
+注册器使用当前 Python 解释器的绝对路径注册各脚本，无需为 hook 增加 shell 启动层。`-E -s` 忽略 Python 环境变量和用户级 site-packages，并允许从同一可信 hooks 目录加载 `_hook_common.py`；不要把不可信文件放入该目录。Python 3.13 是镜像验证使用的版本。
 
-其他 harness 可直接调用入口，不运行 `configure-claude.sh`。例如：
+其他 harness 可直接调用入口，不运行 `configure-claude.py`。例如：
 
 ```bash
 printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"permission_mode":"default"}' \
-  | sh build/hooks/block-rm.sh
+  | "$HOME/.local/share/claude-hooks-venv/bin/python" -E -s build/hooks/block-rm.py
 ```
 
 输入沿用 `tool_name`、`tool_input`、`cwd`、`session_id`、`permission_mode` 和 `hook_event_name` 等事件字段。输出采用 Claude Code 的 `hookSpecificOutput` 协议；其他 harness 必须映射事件字段，并将 `permissionDecision: deny` 转为真正的阻止执行。仅显示 JSON 不构成保护。跨 harness 的消息来源判定也由宿主负责，不保证即插即用。
@@ -493,21 +492,21 @@ printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"per
 在镜像中配置所有默认 hooks：
 
 ```bash
-sh /opt/claude-safety/hooks/configure-claude.sh
+/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py
 ```
 
 仅关闭或重新启用编辑后检查：
 
 ```bash
-sh /opt/claude-safety/hooks/configure-claude.sh --disable post-edit-check
-sh /opt/claude-safety/hooks/configure-claude.sh --enable post-edit-check
+/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py --disable post-edit-check
+/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py --enable post-edit-check
 ```
 
-手动安装把上述路径换成 checkout 中的 `build/hooks/configure-claude.sh`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。
+手动安装使用已安装 `bashlex` 的 Python 解释器，并将脚本路径换成 checkout 中的 `build/hooks/configure-claude.py`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。
 
 #### 分支保护与合并授权
 
-各模式禁止直接 push 到受保护分支，普通功能分支 push 和 force push 不额外限制。默认分支、GitHub 标记的受保护分支与[常见分支策略](build/hooks/claude_safety/protected-branches.json)共用同一判断；策略不默认匹配 `dev*` 或 `staging`，但它们如果是默认分支或已受 GitHub 保护，仍会拦截。
+各模式禁止直接 push 到受保护分支，普通功能分支 push 和 force push 不额外限制。默认分支、GitHub 标记的受保护分支与[常见分支策略](build/hooks/protected-branches.json)共用同一判断；策略不默认匹配 `dev*` 或 `staging`，但它们如果是默认分支或已受 GitHub 保护，仍会拦截。
 
 push 需明确指定目标；不接受未知的变量展开、批量或通配 refspec。remote 配置 push 映射时，需写明 `source:refs/heads/destination`，避免源名称掩盖真实目标。直接 push 不能使用 PR 授权绕过，需改走 PR。
 

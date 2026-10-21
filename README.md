@@ -25,7 +25,7 @@ ssh -p 8964 nonroot@localhost
 | 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能链接给 Codex，Claude 插件不跨工具注册 |
 | fff MCP | 为 Claude Code 注册本地搜索服务；[作用域、启停与持久化配置修复](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
 | Entire | 通过 mise 安装 CLI 和官方插件，不自动启用会话记录；[启用与上传范围](claude-plugins-setup.md#45-entire-cli-与官方技能) |
-| 安全 hooks | 独立 shell 脚本限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；[按需启停与跨 harness 使用](claude-plugins-setup.md#46-安全-hooks) |
+| 安全 hooks | 独立 Python hooks 限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；[按需启停与跨 harness 使用](claude-plugins-setup.md#46-安全-hooks) |
 | 文件回收 | 安装 trash-cli；交互式 `rm` 仅提醒使用 `trash-put` 并返回失败，不把 `rm` 参数自动改写为回收操作 |
 
 重建容器前可将 `/home/nonroot` 挂载为卷保留状态。持久卷也会遮住新镜像中的工具、插件和技能；升级方法见[持久化 home](claude-plugins-setup.md#持久化-home-的注册修复)。MCP 注册补齐不等于整体升级该卷。

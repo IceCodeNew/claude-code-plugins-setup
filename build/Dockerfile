@@ -401,8 +401,7 @@ RUN uv venv --python /usr/bin/python3 /opt/claude-safety \
     && uv pip install --python /opt/claude-safety/bin/python bashlex==0.18 \
     && chmod -R a+rX /opt/claude-safety
 COPY --link build/hooks/ /opt/claude-safety/hooks/
-RUN chmod -R a+rX /opt/claude-safety/hooks \
-    && chmod 755 /opt/claude-safety/hooks/*.sh
+RUN chmod -R a+rX /opt/claude-safety/hooks
 
 
 FROM mise AS runtime
@@ -484,7 +483,7 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
-sh /opt/claude-safety/hooks/configure-claude.sh
+/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py
 /entrypoint.sh --init-mcp
 cat >> "${HOME}/.bashrc" <<'ALIASES'
 alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'

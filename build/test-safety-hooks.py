@@ -72,7 +72,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         }[policy]
         for module in modules:
             result = subprocess.run(
-                ["sh", str(HOOKS / (module.replace("_", "-") + ".sh"))],
+                [PYTHON, "-E", "-s", str(HOOKS / (module.replace("_", "-") + ".py"))],
                 input=json.dumps(payload),
                 env=self.env,
                 capture_output=True,
@@ -94,8 +94,8 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             "record", hook_event_name="UserPromptSubmit", prompt=text, **values
         )
 
-    def test_user_can_call_shell_hooks_from_another_harness(self):
-        """Given JSON on stdin / When calling the shell hook / Then no package installation is needed."""
+    def test_user_can_call_independent_hooks_from_another_harness(self):
+        """Given JSON on stdin / When calling the Python hook / Then no package installation is needed."""
         payload = {
             "hook_event_name": "PreToolUse",
             "tool_name": "Bash",
@@ -104,9 +104,9 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             "cwd": str(self.root),
             "session_id": "portable-hook",
         }
-        script = HOOKS / "block-rm.sh"
+        script = HOOKS / "block-rm.py"
         result = subprocess.run(
-            ["sh", str(script)],
+            [PYTHON, "-E", "-s", str(script)],
             input=json.dumps(payload),
             cwd=self.root,
             env={**self.env, "CLAUDE_HOOK_PYTHON": PYTHON},
@@ -316,8 +316,8 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
                     mixed,
                     {
                         "type": "command",
-                        "command": "sh",
-                        "args": [str(HOOKS / "block-rm.sh")],
+                        "command": PYTHON,
+                        "args": ["-E", "-s", str(HOOKS / "block-rm.py")],
                     },
                 ],
             }
@@ -331,7 +331,9 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         path.write_text(json.dumps(existing))
         for _ in range(2):
             subprocess.run(
-                ["sh", str(HOOKS / "configure-claude.sh")], env=self.env, check=True
+                [PYTHON, "-E", "-s", str(HOOKS / "configure-claude.py")],
+                env=self.env,
+                check=True,
             )
         data = json.loads(path.read_text())
         self.assertEqual(data["hooks"]["Stop"], existing["hooks"]["Stop"])
@@ -343,9 +345,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         for event in ("PreToolUse", "UserPromptSubmit"):
             for group in data["hooks"][event]:
                 for hook in group["hooks"]:
-                    if hook.get("command") == "sh" and hook.get("args", [""])[
-                        0
-                    ].startswith(str(HOOKS) + "/"):
+                    if hook.get("args", [""])[-1].startswith(str(HOOKS) + "/"):
                         self.assertEqual(hook["onFailure"], "block")
 
     def test_user_opaque_merge_forms_fail_closed(self):
@@ -559,7 +559,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             {},
         )
 
-    def test_user_previous_module_registration_is_replaced_by_shell_entrypoint(self):
+    def test_user_previous_registration_is_replaced_by_independent_script(self):
         """Given the previous managed registration / When configured / Then disabled hooks do not survive migration."""
         directory = self.root / "config"
         directory.mkdir()
@@ -576,12 +576,8 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
                                     unrelated,
                                     {
                                         "type": "command",
-                                        "command": PYTHON,
-                                        "args": [
-                                            "-I",
-                                            "-m",
-                                            "claude_safety.post_edit_check",
-                                        ],
+                                        "command": "sh",
+                                        "args": [str(HOOKS / "post-edit-check.sh")],
                                     },
                                 ],
                             }
@@ -591,7 +587,14 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             )
         )
         subprocess.run(
-            ["sh", str(HOOKS / "configure-claude.sh"), "--disable", "post-edit-check"],
+            [
+                PYTHON,
+                "-E",
+                "-s",
+                str(HOOKS / "configure-claude.py"),
+                "--disable",
+                "post-edit-check",
+            ],
             env={**self.env, "CLAUDE_CONFIG_DIR": str(directory)},
             check=True,
         )
@@ -604,13 +607,13 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         self.assertIn(unrelated, hooks)
         self.assertFalse(
             any(
-                "claude_safety.post_edit_check" in hook.get("args", [])
+                str(HOOKS / "post-edit-check.sh") in hook.get("args", [])
                 for hook in hooks
             )
         )
         self.assertFalse(
             any(
-                str(HOOKS / "post-edit-check.sh") in hook.get("args", [])
+                str(HOOKS / "post-edit-check.py") in hook.get("args", [])
                 for hook in hooks
             )
         )
@@ -624,14 +627,16 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         config = self.root / "copy-config"
         env = {**self.env, "CLAUDE_CONFIG_DIR": str(config)}
         subprocess.run(
-            ["sh", str(directory / "configure-claude.sh")], env=env, check=True
+            [PYTHON, "-E", "-s", str(directory / "configure-claude.py")],
+            env=env,
+            check=True,
         )
         data = json.loads((config / "settings.json").read_text())
         hook = next(
             hook
             for group in data["hooks"]["PreToolUse"]
             for hook in group["hooks"]
-            if str(directory / "block-rm.sh") in hook.get("args", [])
+            if str(directory / "block-rm.py") in hook.get("args", [])
         )
         payload = {"tool_name": "Bash", "tool_input": {"command": "rm file"}}
         result = subprocess.run(
@@ -648,7 +653,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
     def test_user_can_disable_one_role_without_disabling_other_guards(self):
         """Given independent hooks / When a role is disabled / Then other roles stay enabled."""
         env = {**self.env, "CLAUDE_CONFIG_DIR": str(self.root / "config")}
-        command = ["sh", str(HOOKS / "configure-claude.sh")]
+        command = [PYTHON, "-E", "-s", str(HOOKS / "configure-claude.py")]
         result = subprocess.run(
             [*command, "--disable", "require-tmux", "post-edit-check"],
             env=env,
@@ -662,13 +667,13 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         subprocess.run(command, env=env, check=True)
         self.assertEqual(path.read_bytes(), disabled)
         groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
-        scripts = {Path(group["hooks"][0]["args"][0]).name for group in groups}
-        self.assertEqual(scripts, {"block-rm.sh", "protected-branches.sh"})
+        scripts = {Path(group["hooks"][0]["args"][-1]).name for group in groups}
+        self.assertEqual(scripts, {"block-rm.py", "protected-branches.py"})
         subprocess.run([*command, "--enable", "require-tmux"], env=env, check=True)
         groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
-        scripts = {Path(group["hooks"][0]["args"][0]).name for group in groups}
-        self.assertIn("require-tmux.sh", scripts)
-        self.assertNotIn("post-edit-check.sh", scripts)
+        scripts = {Path(group["hooks"][0]["args"][-1]).name for group in groups}
+        self.assertIn("require-tmux.py", scripts)
+        self.assertNotIn("post-edit-check.py", scripts)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -29,22 +30,23 @@ def main():
     original = json.dumps(data, sort_keys=True)
     hooks = data.setdefault("hooks", {})
     env = data.setdefault("env", {})
-    root = Path(__file__).resolve().parents[1]
-    scripts = {str(root / (name + ".sh")) for name in ROLES}
-    modules = {"claude_safety." + role.replace("-", "_") for role in ROLES}
+    root = Path(__file__).resolve().parent
+    scripts = {
+        str(root / (name + extension)) for name in ROLES for extension in (".py", ".sh")
+    }
     for entries in hooks.values():
         for entry in entries:
             entry["hooks"] = [
                 hook
                 for hook in entry.get("hooks", [])
                 if not (
+                    hook.get("args", [])[:2] == ["-E", "-s"]
+                    and hook.get("args", [""])[-1] in scripts
+                )
+                and not (
                     hook.get("command") == "sh"
                     and hook.get("args", [])[:1]
                     and hook["args"][0] in scripts
-                )
-                and not (
-                    hook.get("args", [])[:2] == ["-I", "-m"]
-                    and hook.get("args", [""])[-1] in modules
                 )
             ]
         entries[:] = [entry for entry in entries if entry.get("hooks")]
@@ -65,8 +67,8 @@ def main():
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "sh",
-                        "args": [str(root / (role + ".sh"))],
+                        "command": sys.executable,
+                        "args": ["-E", "-s", str(root / (role + ".py"))],
                         "timeout": 30,
                         "onFailure": "block",
                     }

@@ -3,7 +3,6 @@
 import fcntl
 import fnmatch
 import hashlib
-import importlib.resources
 import json
 import os
 import re
@@ -12,7 +11,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .common import PolicyError, commands, deny, run
+from _hook_common import PolicyError, commands, deny, run
 
 
 def gh_json(args, cwd):
@@ -297,9 +296,7 @@ def check_merge(payload, entries):
 
 def protected_branch(host, repo, branch, default, cwd):
     patterns = json.loads(
-        importlib.resources.files(__package__)
-        .joinpath("protected-branches.json")
-        .read_text()
+        Path(__file__).with_name("protected-branches.json").read_text()
     )
     if branch == default or any(
         fnmatch.fnmatchcase(branch.lower(), pattern) for pattern in patterns

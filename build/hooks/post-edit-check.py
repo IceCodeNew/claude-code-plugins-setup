@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .common import run
+from _hook_common import run
 
 
 def post_edit(payload):
