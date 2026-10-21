@@ -74,6 +74,10 @@ def check_repository(server, root, marker, other_marker, from_subdirectory):
                 },
             )
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+            tools = client.request(6, "tools/list", {})
+            assert {"find_files", "grep", "multi_grep"} <= {
+                tool["name"] for tool in tools["tools"]
+            }, tools
             cases = [
                 ("find_files", {"query": filename, "maxResults": 20}),
                 ("grep", {"query": marker, "maxResults": 20}),

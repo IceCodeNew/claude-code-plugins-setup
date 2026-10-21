@@ -452,6 +452,10 @@ COPY --link --parents --from=fff-skill \
     /./home/nonroot/.claude/skills/searching-with-fff \
     /./home/nonroot/.agents/skills/searching-with-fff \
     /
+COPY --link --chmod=755 build/entrypoint.sh /
+COPY --link <<'MCP' /usr/local/share/claude-dev/mcp.json
+{"mcpServers":{"fff":{"type":"stdio","command":"/home/nonroot/.local/bin/fff-mcp"}}}
+MCP
 ENV PATH="${HOME}/.local/bin:${PATH}"
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
 # sshd sessions do not inherit ENV, so login shells activate mise (tools, venv, GITHUB_PERSONAL_ACCESS_TOKEN)
@@ -466,10 +470,9 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
-claude mcp add --scope user --transport stdio fff -- "${HOME}/.local/bin/fff-mcp" --no-update-check
+/entrypoint.sh --init-mcp
 sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
 EOF
-COPY --link --chmod=755 build/entrypoint.sh /
 EXPOSE 8964
 ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 
@@ -477,14 +480,15 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py build/test-entire.py /tmp/
+COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/entrypoint.sh /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
 fff-mcp --version
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
-python3 /tmp/test-fff.py
+python3 -B /tmp/test-mcp-bootstrap.py
+python3 -B /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
 test ! -e "${HOME}/.claude/skills/searching-with-fff/mcp.json"
