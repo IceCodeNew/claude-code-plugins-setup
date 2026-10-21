@@ -137,6 +137,7 @@ tree-sitter = "latest"
 "pypi:nmem-cli" = "latest"
 
 "github:aptible/supercronic" = "latest"
+"github:entireio/cli" = "latest"
 "github:redhat-et/ripwire" = "latest"
 "github:Xuanwo/xurl" = "latest"
 
@@ -247,6 +248,7 @@ claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace add typesafe-ai/skills
+claude plugin marketplace add entireio/skills
 
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare code-review \
@@ -263,6 +265,8 @@ claude plugin install modern-go-guidelines@goland-claude-marketplace --scope use
 claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
+
+claude plugin install entire@entire-skills --scope user
 
 for p in claude-security redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
@@ -403,6 +407,7 @@ USER nonroot:nonroot
 
 
 FROM runtime AS final
+ENV ENTIRE_TELEMETRY_OPTOUT=1
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
 COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
@@ -455,6 +460,7 @@ RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,
 set -euo pipefail
 cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
 [env]
+ENTIRE_TELEMETRY_OPTOUT = "1"
 _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
 # github MCP; empty until `gh auth login`
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
@@ -471,11 +477,13 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py /tmp/test-fff.py
+COPY --link --chmod=644 build/test-fff.py build/test-entire.py /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
 fff-mcp --version
+command -v git-remote-entire
+python3 -B /tmp/test-entire.py
 python3 /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"

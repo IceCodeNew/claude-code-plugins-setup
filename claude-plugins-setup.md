@@ -375,7 +375,40 @@ claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 
 也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
 
-### 4.5 重新加载
+### 4.5 Entire CLI 与官方技能
+
+[Entire CLI](https://entire.io/features/cli) 提供会话 checkpoint、历史检索与代码解释。[现行官方技能仓库](https://github.com/entireio/skills)通过 `entire@entire-skills` 插件提供技能；旧的 `entireio/claude-plugins` 已弃用。插件包含检索、解释、审查、会话交接等工作流，不需要为 Claude Code 重复安装独立技能。插件不自动软链接给 Codex。
+
+Entire CLI 与其他命令行工具相同，通过 mise 的 GitHub backend 安装官方 release，下载、平台选择和安装由 mise 管理：
+
+```bash
+mise use -g github:entireio/cli@latest
+entire version
+```
+
+同一 release 中的 `git-remote-entire` 一并提供。更新使用 `mise upgrade github:entireio/cli`；镜像不设置 `ENTIRE_NO_AUTO_UPDATE`，保留 Entire 自身的更新行为。
+
+官方技能与其他插件相同，跟随上游默认分支安装：
+
+```bash
+claude plugin marketplace add entireio/skills
+claude plugin install entire@entire-skills --scope user
+```
+
+已有持久化 home 会覆盖镜像中的工具与插件配置，需要在该 home 内执行上述 mise 和插件安装。
+
+安装不会启用记录。不要用裸 `entire` 做安装检查，它可能启动设置流程。`entire enable` 会写入项目 `.claude/settings.json`、Git hooks 和 `.entire`，即使使用 `--local` 也会写入项目 hook 配置。启用后，后续 `git push` 默认推送会话 checkpoint，可能包含提示词、工具结果和图片；本地原始 transcript 不脱敏，提交中的秘密扫描也不等同于完整隐私保护。公开仓库尤其需要核对上传内容。
+
+在明确决定为当前项目启用记录后，可运行：
+
+```bash
+ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
+  --no-init-repo --telemetry=false --skip-push-sessions
+```
+
+该命令关闭自动推送 checkpoint，不保证完全不联网。镜像默认设置 `ENTIRE_TELEMETRY_OPTOUT=1`，不禁用自动更新。远程历史检索仍需单独登录；技能中的跨会话检索和提交关联操作也需按实际工作流确认。
+
+### 4.6 重新加载
 
 在已经运行的 claude 会话里执行 `/reload-skills`，新装的技能就能用；新开的会话会自动加载。
 
