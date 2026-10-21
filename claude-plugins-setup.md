@@ -379,12 +379,14 @@ claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 
 [Entire CLI](https://entire.io/features/cli) 提供会话 checkpoint、历史检索与代码解释。[现行官方技能仓库](https://github.com/entireio/skills)通过 `entire@entire-skills` 插件提供技能；旧的 `entireio/claude-plugins` 已弃用。插件包含检索、解释、审查、会话交接等工作流，不需要为 Claude Code 重复安装独立技能。插件不自动软链接给 Codex。
 
-镜像从 [entireio/cli releases](https://github.com/entireio/cli/releases) 安装 `entire` 和 `git-remote-entire` 到 `/usr/local/bin`。版本与两种 Linux 架构的 SHA-256 以 Dockerfile 的 `ENTIRE_VERSION` 和 `entire` stage 为准；更新版本时必须同时更新校验值。手动安装可使用官方脚本，并自行选择固定版本：
+Entire CLI 与其他命令行工具相同，通过 mise 的 GitHub backend 安装官方 release，下载、平台选择和安装由 mise 管理：
 
 ```bash
-curl -fsSL https://entire.io/install.sh | bash -s -- --version <version>
+mise use -g github:entireio/cli@latest
 entire version
 ```
+
+同一 release 中的 `git-remote-entire` 一并提供。更新使用 `mise upgrade github:entireio/cli`；镜像不设置 `ENTIRE_NO_AUTO_UPDATE`，保留 Entire 自身的更新行为。
 
 官方技能与其他插件相同，跟随上游默认分支安装：
 
@@ -393,7 +395,7 @@ claude plugin marketplace add entireio/skills
 claude plugin install entire@entire-skills --scope user
 ```
 
-已有持久化 home 会覆盖镜像中的插件配置，需要在该 home 内执行上述安装；二进制位于 home 外，不受卷覆盖。
+已有持久化 home 会覆盖镜像中的工具与插件配置，需要在该 home 内执行上述 mise 和插件安装。
 
 安装不会启用记录。不要用裸 `entire` 做安装检查，它可能启动设置流程。`entire enable` 会写入项目 `.claude/settings.json`、Git hooks 和 `.entire`，即使使用 `--local` 也会写入项目 hook 配置。启用后，后续 `git push` 默认推送会话 checkpoint，可能包含提示词、工具结果和图片；本地原始 transcript 不脱敏，提交中的秘密扫描也不等同于完整隐私保护。公开仓库尤其需要核对上传内容。
 
@@ -404,7 +406,7 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
   --no-init-repo --telemetry=false --skip-push-sessions
 ```
 
-该命令关闭自动推送 checkpoint，不保证完全不联网。镜像默认设置 `ENTIRE_TELEMETRY_OPTOUT=1` 和 `ENTIRE_NO_AUTO_UPDATE=1`，后者只关闭交互更新提示。远程历史检索仍需单独登录；技能中的跨会话检索和提交关联操作也需按实际工作流确认。
+该命令关闭自动推送 checkpoint，不保证完全不联网。镜像默认设置 `ENTIRE_TELEMETRY_OPTOUT=1`，不禁用自动更新。远程历史检索仍需单独登录；技能中的跨会话检索和提交关联操作也需按实际工作流确认。
 
 ### 4.6 重新加载
 

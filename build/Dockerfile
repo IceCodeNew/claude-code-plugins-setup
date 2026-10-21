@@ -137,6 +137,7 @@ tree-sitter = "latest"
 "pypi:nmem-cli" = "latest"
 
 "github:aptible/supercronic" = "latest"
+"github:entireio/cli" = "latest"
 "github:redhat-et/ripwire" = "latest"
 "github:Xuanwo/xurl" = "latest"
 
@@ -361,26 +362,6 @@ mise install
 EOF
 
 
-FROM mise AS entire
-USER root:root
-ARG TARGETARCH
-ARG ENTIRE_VERSION=0.11.6
-RUN <<EOF
-set -euo pipefail
-case "$TARGETARCH" in
-    amd64) checksum=1272cf16a81d30678dd9cf2597e9298dbf6481ada9b81215dc746afb0e79cab0 ;;
-    arm64) checksum=2f70f50dc9a0f519c3e5a8080218caf035d9c6442c9502bde971734373952e11 ;;
-    *) echo "Unsupported Entire architecture: $TARGETARCH" >&2; exit 1 ;;
-esac
-download=$(mktemp -d /tmp/entire-download.XXXXXXXX)
-extracted=$(mktemp -d /tmp/entire-extract.XXXXXXXX)
-curl -fsSL "https://github.com/entireio/cli/releases/download/v${ENTIRE_VERSION}/entire_linux_${TARGETARCH}.tar.gz" -o "$download/entire.tar.gz"
-printf '%s  %s\n' "$checksum" "$download/entire.tar.gz" | sha256sum -c -
-tar -xzf "$download/entire.tar.gz" -C "$extracted" --no-same-owner --no-same-permissions entire git-remote-entire
-install -m 755 "$extracted/entire" "$extracted/git-remote-entire" /usr/local/bin/
-EOF
-
-
 FROM mise AS fff
 RUN <<EOF
 set -euo pipefail
@@ -426,8 +407,7 @@ USER nonroot:nonroot
 
 
 FROM runtime AS final
-COPY --link --from=entire /usr/local/bin/entire /usr/local/bin/git-remote-entire /usr/local/bin/
-ENV ENTIRE_TELEMETRY_OPTOUT=1 ENTIRE_NO_AUTO_UPDATE=1
+ENV ENTIRE_TELEMETRY_OPTOUT=1
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
 COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
@@ -481,7 +461,6 @@ set -euo pipefail
 cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
 [env]
 ENTIRE_TELEMETRY_OPTOUT = "1"
-ENTIRE_NO_AUTO_UPDATE = "1"
 _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
 # github MCP; empty until `gh auth login`
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"

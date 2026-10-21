@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def main():
-    env = {**os.environ, "ENTIRE_TELEMETRY_OPTOUT": "1", "ENTIRE_NO_AUTO_UPDATE": "1"}
+    env = {**os.environ, "ENTIRE_TELEMETRY_OPTOUT": "1"}
     with tempfile.TemporaryDirectory(prefix="entire-smoke-") as directory:
         root = Path(directory)
         subprocess.run(["git", "init", "-q", str(root)], check=True)
