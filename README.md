@@ -29,6 +29,6 @@ docker run -d --name claude-dev -p 8964:8964 \
 ssh -p 8964 nonroot@localhost
 ```
 
-登录 shell 会执行 `mise activate`，所以工具、共享 venv 和 `GITHUB_PERSONAL_ACCESS_TOKEN` 都可用。各插件的登录与认证仍需在容器里手动完成，见 `claude-plugins-setup.md` 第 5 节。要在重建容器后保留登录状态，把 `/home/nonroot` 挂载为卷。
+登录 shell 会执行 `mise activate`，所以工具、共享 venv 和 `GITHUB_PERSONAL_ACCESS_TOKEN` 都可用。各插件的登录与认证仍需在容器里手动完成，见 `claude-plugins-setup.md` 第 5 节。要在重建容器后保留登录状态，把 `/home/nonroot` 挂载为卷。启动时会补齐镜像默认清单中缺失的 MCP 注册，已有自定义配置和项目禁用记录保持不变；停用及修复步骤见手册「持久化 home 的注册修复」。
 
 `.github/workflows/build.yml` 在 master 分支上构建 `linux/amd64` 和 `linux/arm64` 镜像，并以 `CLAUDE_CODE_VERSION` 为标签推送到 Docker Hub。版本号由 Renovate 按 `renovate.json` 更新。

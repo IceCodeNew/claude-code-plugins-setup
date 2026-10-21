@@ -327,7 +327,7 @@ gh extension install github/gh-stack
   bash "$installer"
 )
 "$HOME/.local/bin/fff-mcp" --version
-claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
+claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 ```
 
 技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
@@ -345,7 +345,7 @@ claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp" 
 )
 ```
 
-MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。在目标 worktree 中启动 Claude，新会话中用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。`--no-update-check` 关闭服务的自动更新检查，更新由安装流程负责。
+MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。在目标 worktree 中启动 Claude，新会话中用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。
 
 技能 description 用于模型判断是否需要加载技能；正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些都是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
 
@@ -365,7 +365,7 @@ Claude Code 没有像 skill description 那样按关键词或行为自动启用�
 ```bash
 claude mcp remove --scope user fff
 # 在目标项目中执行；私有 local scope
-claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp" --no-update-check
+claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 # 要与团队共享时，把上一条的 --scope local 换成 --scope project；不要两条都执行
 ```
 
@@ -374,6 +374,21 @@ claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
 
 也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+
+#### 持久化 home 的注册修复
+
+镜像在 `/usr/local/share/claude-dev/mcp.json` 声明 MCP 默认项，现有 `entrypoint.sh` 在启动时通过 `claude mcp add-json` 补齐缺失的 user-scope 注册。新增 MCP 可复用同一清单，不需要专用修复脚本。已有自定义注册、项目禁用记录和 `CLAUDE_CONFIG_DIR` 保持有效；损坏配置不会重置，入口脚本输出警告后仍提供 SSH。
+
+已有运行中的环境执行镜像入口脚本的初始化模式即可，不会启动 SSH：
+
+```bash
+/entrypoint.sh --init-mcp
+claude mcp get fff
+```
+
+当前 checkout 的入口脚本也支持 `bash build/entrypoint.sh --init-mcp <defaults.json>`。默认清单不放在 home 内，因此不会被持久卷覆盖。Claude CLI 可能同时执行自身的配置迁移。
+
+注册不会为已启动的会话热加载工具。在 `/mcp` 中重新连接，或重新启动 Claude。需要移除默认项时，设置容器环境变量 `CLAUDE_DEV_SKIP_MCP="fff"`（多个名称以空格分隔），避免下次启动补回；该变量不删除已有注册，也不改变项目禁用记录。
 
 ### 4.5 Entire CLI 与官方技能
 
