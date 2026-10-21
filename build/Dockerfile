@@ -229,6 +229,7 @@ EOF
 # refetch every plugin and skill. gh and ripwire come from the cli stage.
 FROM npm-tools AS agent-config
 COPY --link --from=cli /home/ /home/
+ARG ENTIRE_SKILLS_REVISION=fe5266f76d846222c73b080ce39fd803dd705198
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -263,6 +264,14 @@ claude plugin install modern-go-guidelines@goland-claude-marketplace --scope use
 claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
+
+entire_skills="${HOME}/git/entire-skills"
+git init -q "$entire_skills"
+git -C "$entire_skills" fetch --depth 1 https://github.com/entireio/skills.git "$ENTIRE_SKILLS_REVISION"
+git -C "$entire_skills" checkout --detach -q FETCH_HEAD
+test "$(git -C "$entire_skills" rev-parse HEAD)" = "$ENTIRE_SKILLS_REVISION"
+claude plugin marketplace add "$entire_skills"
+claude plugin install entire@entire-skills --scope user
 
 for p in claude-security redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
@@ -358,6 +367,26 @@ mise install
 EOF
 
 
+FROM mise AS entire
+USER root:root
+ARG TARGETARCH
+ARG ENTIRE_VERSION=0.11.6
+RUN <<EOF
+set -euo pipefail
+case "$TARGETARCH" in
+    amd64) checksum=1272cf16a81d30678dd9cf2597e9298dbf6481ada9b81215dc746afb0e79cab0 ;;
+    arm64) checksum=2f70f50dc9a0f519c3e5a8080218caf035d9c6442c9502bde971734373952e11 ;;
+    *) echo "Unsupported Entire architecture: $TARGETARCH" >&2; exit 1 ;;
+esac
+download=$(mktemp -d /tmp/entire-download.XXXXXXXX)
+extracted=$(mktemp -d /tmp/entire-extract.XXXXXXXX)
+curl -fsSL "https://github.com/entireio/cli/releases/download/v${ENTIRE_VERSION}/entire_linux_${TARGETARCH}.tar.gz" -o "$download/entire.tar.gz"
+printf '%s  %s\n' "$checksum" "$download/entire.tar.gz" | sha256sum -c -
+tar -xzf "$download/entire.tar.gz" -C "$extracted" --no-same-owner --no-same-permissions entire git-remote-entire
+install -m 755 "$extracted/entire" "$extracted/git-remote-entire" /usr/local/bin/
+EOF
+
+
 FROM mise AS fff
 RUN <<EOF
 set -euo pipefail
@@ -403,6 +432,8 @@ USER nonroot:nonroot
 
 
 FROM runtime AS final
+COPY --link --from=entire /usr/local/bin/entire /usr/local/bin/git-remote-entire /usr/local/bin/
+ENV ENTIRE_TELEMETRY_OPTOUT=1 ENTIRE_NO_AUTO_UPDATE=1
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
 COPY --link --from=uv-bin /uv /uvx /usr/local/bin/
@@ -455,6 +486,8 @@ RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,
 set -euo pipefail
 cat > "${HOME}/.config/mise/config.toml" <<'CONFIG'
 [env]
+ENTIRE_TELEMETRY_OPTOUT = "1"
+ENTIRE_NO_AUTO_UPDATE = "1"
 _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
 # github MCP; empty until `gh auth login`
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
@@ -471,11 +504,14 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py /tmp/test-fff.py
+COPY --link --chmod=644 build/test-fff.py build/test-entire.py /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
 fff-mcp --version
+entire version
+command -v git-remote-entire
+python3 -B /tmp/test-entire.py
 python3 /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
