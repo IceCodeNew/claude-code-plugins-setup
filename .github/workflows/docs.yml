@@ -1,0 +1,30 @@
+name: Documentation checks
+permissions: {}
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "claude-plugins-setup.md"
+      - "build/Dockerfile"
+      - "build/test-docs.py"
+      - ".github/workflows/docs.yml"
+  push:
+    branches:
+      - master
+    paths:
+      - "README.md"
+      - "claude-plugins-setup.md"
+      - "build/Dockerfile"
+      - "build/test-docs.py"
+      - ".github/workflows/docs.yml"
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check documentation links and setup contract
+        run: python3 -B build/test-docs.py

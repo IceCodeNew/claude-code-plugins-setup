@@ -397,10 +397,12 @@ EOF
 FROM mise AS safety
 USER root:root
 COPY --link --from=uv-bin /uv /usr/local/bin/uv
-COPY --link build/hooks/ /tmp/hooks/
 RUN uv venv --python /usr/bin/python3 /opt/claude-safety \
-    && uv pip install --python /opt/claude-safety/bin/python /tmp/hooks \
+    && uv pip install --python /opt/claude-safety/bin/python bashlex==0.18 \
     && chmod -R a+rX /opt/claude-safety
+COPY --link build/hooks/ /opt/claude-safety/hooks/
+RUN chmod -R a+rX /opt/claude-safety/hooks \
+    && chmod 755 /opt/claude-safety/hooks/*.sh
 
 
 FROM mise AS runtime
@@ -482,8 +484,11 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
-/opt/claude-safety/bin/python -I -m claude_safety.settings
+/opt/claude-safety/hooks/configure-claude.sh
 /entrypoint.sh --init-mcp
+cat >> "${HOME}/.bashrc" <<'ALIASES'
+alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'
+ALIASES
 sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
 EOF
 EXPOSE 8964
@@ -499,7 +504,7 @@ set -euo pipefail
 claude --version
 fff-mcp --version
 trash-put --version
-python3 -B /tmp/test-safety-hooks.py
+CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" python3 -B /tmp/test-safety-hooks.py
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
 python3 -B /tmp/test-mcp-bootstrap.py

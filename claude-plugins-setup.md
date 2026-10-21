@@ -1,12 +1,21 @@
 # Claude Code 插件与依赖安装手册
 
-生成日期：2026-09-25。环境：Linux x64，claude 2.1.281，mise 2026.9.12。
+本手册面向 Linux 手动安装；镜像用户可直接查看[登录与认证](#5-登录与认证)、[验证](#6-验证)和[安全 hooks](#46-安全-hooks)。容器构建与启动命令见 [README](README.md#快速使用)。
 
-插件清单另存为 `claude-plugins.tsv`（4 列：`插件@marketplace`、版本、scope、是否启用）。第 4 节另外安装一批第三方技能（skills），以及 fff MCP 和独立维护的搜索技能。
+| 安装内容 | 管理方式 |
+|---|---|
+| 命令行工具 | mise；手动步骤通常跟随上游最新版本，镜像版本以 [Dockerfile](build/Dockerfile) 为准 |
+| Python 依赖 | uv 共享 venv；安全 hooks 单独安装 Bash 解析器，不依赖插件 venv |
+| Claude 插件 | user-scope marketplace 安装；[清单](claude-plugins.tsv)是状态快照，非版本锁文件 |
+| 独立技能 | 安装到 `~/.claude/skills`，镜像逐个链接到 Codex 使用的 `~/.agents/skills` |
 
-本文面向一台全新的机器。命令行工具由 mise 管理，写在 `~/.config/mise/config.toml`；Python 包由 uv 装进 Claude 插件共用的 venv；git、curl、lsof、tmux 由系统包管理器安装。
+新机器按第 1 至第 6 节执行。已有配置需合并而非覆盖；代码块可能依赖前面的环境、当前目录和认证。从仓库引用脚本时，先定位到 checkout 根目录。
 
-按顺序执行第 1 到第 6 节。每个代码块都能单独复制执行。
+- [系统包与 mise](#1-系统包和-mise)
+- [工具及 Python 环境](#2-mise-配置)
+- [Claude 插件](#3-添加-marketplace-并安装插件)
+- [技能、MCP、Entire 与 hooks](#4-第三方技能)
+- [认证](#5-登录与认证)与[验证](#6-验证)
 
 ---
 
@@ -20,6 +29,28 @@ sudo apt update && sudo apt install -y git curl lsof tmux trash-cli
 # Fedora
 # sudo dnf install -y git curl lsof tmux trash-cli
 ```
+
+### 1.1 文件回收与交互式别名
+
+trash-cli 的正式回收命令为 `trash-put`，恢复使用 `trash-restore`。[官方 FAQ](https://github.com/andreafrancia/trash-cli#can-i-alias-rm-to-trash-put) 不建议将 `rm` 直接指向 `trash-put`：二者语义不同，例如回收目录不要求 `-r`。这里采用提醒式别名，交互式输入 `rm` 会显示替代命令并返回失败。
+
+将下面一行加入 `~/.bashrc`；使用 Zsh 时加入 `~/.zshrc`：
+
+```bash
+alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'
+```
+
+重新打开交互 shell 后生效。非交互脚本不依赖该别名；agent 的 `rm` 限制由[安全 hook](#46-安全-hooks)执行。回收和恢复使用：
+
+```bash
+trash-put -- path/to/file
+trash-list
+trash-restore
+```
+
+不要把 `trash-empty` 或 `trash-rm` 当成回收命令，它们会从回收站永久删除内容。本配置不自动清空回收站。
+
+### 1.2 安装 mise
 
 安装 mise 并在 shell 里激活：
 
@@ -177,7 +208,7 @@ claude plugin marketplace add typesafe-ai/skills
 claude plugin marketplace update
 ```
 
-安装全部 34 个插件：
+安装以下插件，Entire 官方插件在 [4.5 节](#45-entire-cli-与官方技能)安装：
 
 ```bash
 for p in \
@@ -203,7 +234,7 @@ claude plugin install typesafe@typesafe-ai --scope user
 
 在脚本或管道里跑、stdin/stdout 不是终端时，给需要确认的安装加 `-y`。
 
-以下 3 个插件装好后禁用：
+以下插件装好后禁用：
 
 ```bash
 for p in claude-security redis-development modern-web-guidance; do
@@ -211,7 +242,7 @@ for p in claude-security redis-development modern-web-guidance; do
 done
 ```
 
-也可以直接用 `claude-plugins.tsv` 驱动：
+清单中的版本列只供核对，下面命令不据此锁定版本。使用清单批量安装前，应先添加对应 marketplace：
 
 ```bash
 cut -f1 claude-plugins.tsv | xargs -n1 claude plugin install --scope user
@@ -228,13 +259,13 @@ claude plugin list
 
 ## 4. 第三方技能
 
-技能均安装上游当时的最新版本。ninehills 维护的技能用其仓库自带的 Python 脚本安装；ripwire 的技能用 ripwire 发布包自带的安装脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
+除下文明确固定的 fff 安装器和搜索技能外，技能通常跟随上游默认分支。ninehills 维护的技能用其仓库自带的 Python 脚本安装；ripwire 的技能用 ripwire 发布包自带的安装脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
 
-截至 2026-09-29，[cloudflare/cf](https://github.com/cloudflare/cf) 仓库没有 `SKILL.md`，无需额外安装 cf 专用技能。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，因此这里不再重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "你的任务"` 发现命令。
+Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，因此这里不再重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "你的任务"` 发现命令。
 
 ### 4.1 ninehills 技能（官方 skills-manager 脚本）
 
-脚本按「场景」整组安装，用软链接把技能装进 `~/.codex/skills`、`~/.pi/agent/skills`、`~/.claude/skills`、`~/.hermes/skills` 四个目录，所以仓库要克隆到一个长期保留的位置。这里用 Common 场景（33 个技能，含 better-goal、hunt、karpathy-guidelines、learn、pua、read、review-code、tdd、think、write）。
+脚本按「场景」整组安装，用软链接把技能装进 `~/.codex/skills`、`~/.pi/agent/skills`、`~/.claude/skills`、`~/.hermes/skills` 四个目录，所以仓库要克隆到一个长期保留的位置。这里安装 Common 场景，具体成员以 `skills-manager scenarios list` 的输出为准。
 
 ```bash
 git clone https://github.com/ninehills/skills ~/git/ninehills-skills
@@ -425,62 +456,97 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
 
 ### 4.6 安全 hooks
 
-镜像安装 `trash-cli`，并通过用户级 `settings.json` 注册 `PreToolUse`、`UserPromptSubmit` 和 `PostToolUse` 规则。按职责拆分的 hook 模块和固定版本的 Bash 解析器位于 `/opt/claude-safety`，不受 home 持久卷覆盖。容器启动时合并缺少的 hook 注册，保留其他插件、hooks 和设置。
+#### 脚本入口与安装
 
-- 各执行模式都拒绝直接 `rm`、绝对路径、常见包装命令、命令替换和嵌套 shell 中的 `rm`。使用 `trash-put -- <path>` 代替；不把 `rm` 参数自动转换成回收参数。
-- `bypassPermissions` 模式下，将 PR 合并到受保护分支前必须取得当前会话的明确授权。普通权限模式保持原有权限处理。
+[build/hooks](build/hooks) 提供按职责划分的 shell 入口，JSON 从 stdin 读入，结果写到 stdout。脚本不依赖安装本仓库的 Python 包；`claude_safety/` 只保存共用解析器和安全判断，必须与 `.sh` 文件一同保留。Python 与 `bashlex` 仍是运行依赖，不能仅复制单个入口文件。
 
-另有两项执行限制：禁止直接 push 到受保护分支；普通功能分支的 push 和 force push 不额外限制；dev server 需要在 tmux 中运行。编辑后的 Python/JS/TS/Rust/Go 文件使用本地 ruff、oxlint、rustfmt、gofmt 检查，缺少工具时明确提示并跳过，不运行 npx 下载或整个项目构建。检查保留退出状态和完整诊断，最长运行 20 秒；项目级检查仍需显式执行。
+| 脚本 | 职责 | 使用事件 |
+|---|---|---|
+| `block-rm.sh` | 各模式拒绝执行 shell `rm`，要求 `trash-put` | 工具执行前 |
+| `protected-branches.sh` | 统一检查 push、PR 合并和指定 PR 的会话授权 | 工具执行前、用户提交消息 |
+| `require-tmux.sh` | dev server 使用 tmux | 工具执行前 |
+| `post-edit-check.sh` | 编辑后文件级诊断 | 写入或编辑后 |
+| `configure-claude.sh` | 仅配置 Claude Code 的 hook 注册及启停 | 手动执行或镜像启动 |
 
-在当前仓库的对话中，单独回复完整的一行即可授权指定 PR：
+镜像将脚本和解析器放在 `/opt/claude-safety`，不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
+
+```bash
+uv venv --python 3.13 "$HOME/.local/share/claude-hooks-venv"
+uv pip install --python "$HOME/.local/share/claude-hooks-venv/bin/python" 'bashlex==0.18'
+export CLAUDE_HOOK_PYTHON="$HOME/.local/share/claude-hooks-venv/bin/python"
+sh build/hooks/configure-claude.sh
+```
+
+将 `CLAUDE_HOOK_PYTHON` 加入启动 harness 的 shell 环境，避免重启后找不到依赖。脚本默认先找相邻的镜像 venv，找不到时使用 `python3`；该环境需要安装 `bashlex`。Python 3.13 是镜像验证使用的版本。
+
+其他 harness 可直接调用入口，不运行 `configure-claude.sh`。例如：
+
+```bash
+printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"permission_mode":"default"}' \
+  | sh build/hooks/block-rm.sh
+```
+
+输入沿用 `tool_name`、`tool_input`、`cwd`、`session_id`、`permission_mode` 和 `hook_event_name` 等事件字段。输出采用 Claude Code 的 `hookSpecificOutput` 协议；其他 harness 必须映射事件字段，并将 `permissionDecision: deny` 转为真正的阻止执行。仅显示 JSON 不构成保护。跨 harness 的消息来源判定也由宿主负责，不保证即插即用。
+
+#### 选择性启停
+
+在镜像中配置所有默认 hooks：
+
+```bash
+/opt/claude-safety/hooks/configure-claude.sh
+```
+
+仅关闭或重新启用编辑后检查：
+
+```bash
+/opt/claude-safety/hooks/configure-claude.sh --disable post-edit-check
+/opt/claude-safety/hooks/configure-claude.sh --enable post-edit-check
+```
+
+手动安装把上述路径换成 checkout 中的 `build/hooks/configure-claude.sh`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。
+
+#### 分支保护与合并授权
+
+各模式禁止直接 push 到受保护分支，普通功能分支 push 和 force push 不额外限制。默认分支、GitHub 标记的受保护分支与[常见分支策略](build/hooks/claude_safety/protected-branches.json)共用同一判断；策略不默认匹配 `dev*` 或 `staging`，但它们如果是默认分支或已受 GitHub 保护，仍会拦截。
+
+push 需明确指定目标；不接受未知的变量展开、批量或通配 refspec。remote 配置 push 映射时，需写明 `source:refs/heads/destination`，避免源名称掩盖真实目标。直接 push 不能使用 PR 授权绕过，需改走 PR。
+
+`bypassPermissions` 模式合并受保护分支前，用户在当前仓库的对话中单独回复：
 
 ```text
 允许合并 PR #123
 ```
 
-直接 push 无法使用 PR 授权绕过，必须改走 PR；隐式目标、带通配 refspec 或批量 push 无法明确目标时拒绝并要求指定分支。remote 配置 push 映射时，需写明 `source:refs/heads/destination`，避免源分支名称掩盖实际目标。
+授权绑定会话、GitHub host、仓库和 PR，不跨会话复用；同一会话恢复或压缩不清除授权。`撤销合并 PR #123` 移除当前会话同编号 PR 的授权，不依赖网络；`撤销所有合并授权` 清除当前会话授权。引用、代码示例、工具结果和已标识自动消息不提供授权。
 
-授权绑定当前会话、GitHub host、仓库和 PR，不跨会话复用；同一会话恢复或压缩不清除授权。撤销使用 `撤销合并 PR #123`，会移除当前会话中同编号 PR 的授权，不依赖网络；也可单独回复 `撤销所有合并授权`。引用、代码示例、工具结果和已标识的自动消息不提供授权。CLI/Paseo 宿主必须如实传递用户输入；hook 无法区分宿主伪造的、与人类输入完全相同的裸文本。
+拒绝只阻止本次操作。agent 应用普通消息申请授权，同时继续测试、文档及其他不依赖合并的工作，不使用阻塞式提问。授权不会执行合并，也不能取消已经向 GitHub 提交的自动合并或队列任务。
 
-合并被拒绝时，hook 要求 agent 用普通消息申请授权，同时继续测试、文档和其他不依赖该合并的工作，不使用阻塞式提问。授权不会自行执行合并。撤销只影响后续调用，不能取消已经提交给 GitHub 的自动合并或队列任务。
+支持 `gh pr merge`（含 `--auto`）、REST 合并与 GitHub MCP `merge_pull_request`。GraphQL 合并和不透明请求体改用明确的 `gh pr merge <number> -R owner/repo`。无法确认目标、元数据或授权状态时拒绝执行。
 
-合并规则覆盖 `gh pr merge`（含 `--auto`）、REST 合并和 GitHub MCP 的 `merge_pull_request`。GraphQL 合并、自动合并或不透明请求体拒绝执行，改用明确的 `gh pr merge <number> -R owner/repo`。分支保护由同一规则判断：读取目标仓库的默认分支和 GitHub 受保护分支列表，再匹配随模块发布的 `protected-branches.json` 常见名称/路径策略，覆盖 main/master、prod/production、release/stable 等。名称不散落在各 hook 中；元数据、状态或脚本失败时拒绝相关操作。新建功能分支无需先存在于远端。
+#### 其他规则与边界
 
-这些 hooks 是 agent 工具调用保护，不是进程隔离。它们不会扫描任意 Python/Node 脚本、改名二进制或其他程序内部的子进程；不保证抵御主动修改用户配置、sudo 或伪造消息的恶意 agent。无法解析的 shell 语法会保守拒绝，拆成明确命令后再执行。普通文本里的 `rm` 不受限制。
-
-已有环境可运行同一注册入口；之后用 `/hooks` 检查，必要时重启会话：
-
-```bash
-/opt/claude-safety/bin/python -I -m claude_safety.settings
-trash-put --version
-```
-
-每个 hook 独立注册，可按需启停：
-
-| 名称 | 模块 | 职责 |
-|---|---|---|
-| `block-rm` | `block_rm.py` | 各模式拒绝 shell `rm` |
-| `require-tmux` | `require_tmux.py` | dev server 使用 tmux |
-| `protected-branches` | `protected_branches.py` | 统一检查 push 与 PR 合并、记录指定 PR 授权 |
-| `post-edit-check` | `post_edit_check.py` | 编辑后文件级诊断 |
-
-例如，仅关闭编辑后检查，或重新启用它：
-
-```bash
-/opt/claude-safety/bin/python -I -m claude_safety.settings --disable post-edit-check
-/opt/claude-safety/bin/python -I -m claude_safety.settings --enable post-edit-check
-```
-
-可在同一命令后列出多个名称。选择保存在用户 `settings.json`，容器启动时不会重新启用已禁用项；`/hooks` 可查看各独立注册，修改后重启会话。`protected-branches` 的 push、授权记录与合并检查作为同一职责一起启停。
-
+- `block-rm` 覆盖绝对路径、常见包装命令、命令替换和嵌套 shell；普通文本、Docker `--rm` 和 `docker rm` 不误当成 shell `rm`。
+- dev server 使用 tmux，普通构建或帮助命令不受限。
+- 编辑后使用本地 ruff、oxlint、rustfmt、gofmt；缺工具会提示并跳过，不隐式下载包，不构建整个项目。诊断保留状态和完整输出，最长运行 20 秒。
+- hooks 是工具调用保护，不是进程隔离。任意解释器脚本、改名二进制及其他程序内部子进程不在保证范围；用户或宿主可修改、禁用 hooks。
+- CLI/Paseo 等宿主必须如实传递用户输入。hook 无法区分恶意宿主伪造的、与人类输入相同的裸文本。
 
 ### 4.7 重新加载
 
-在已经运行的 claude 会话里执行 `/reload-skills`，新装的技能就能用；新开的会话会自动加载。
+技能使用 `/reload-skills` 重新加载；MCP 注册使用 `/mcp` 检查和重连，必要时重启。hooks 修改后检查 `/hooks` 并重启会话，不将技能重载当作 hook 或 MCP 重载。
 
 ---
 
 ## 5. 登录与认证
+
+先完成 Claude Code 本身的认证，已通过环境变量或宿主配置凭据时仅检查状态：
+
+```bash
+claude auth status
+claude auth login
+```
+
+各集成单独配置，不把凭据写入 Dockerfile：
 
 | 插件 | 要做的事 |
 |---|---|
@@ -541,9 +607,8 @@ nmem status
 openskills list
 "$HOME/.local/bin/fff-mcp" --version
 claude mcp get fff
-# 在本仓库中运行真实 MCP 搜索验证：两个独立 Git 根目录，其中一个从子目录启动
-python3 -B build/test-fff.py
-find ~/.claude/skills -maxdepth 1 -type l | wc -l   # ninehills Common 场景的 33 个软链接
+test -r ~/.claude/skills/searching-with-fff/SKILL.md
+test -r ~/.agents/skills/searching-with-fff/SKILL.md
 gh stack --help | head -1
 ```
 
@@ -554,4 +619,22 @@ gh stack --help | head -1
 /remember:doctor      # remember 插件自检
 /plugin               # 插件和启用状态
 /skills               # 技能列表，第 4 节装的技能应在其中
+```
+
+### 仓库验收
+
+在 checkout 根目录执行；镜像 smoke 还会校验已安装脚本及实际交互式别名。手动运行安全测试时设置专用解释器：
+
+```bash
+CLAUDE_HOOK_PYTHON="$HOME/.local/share/claude-hooks-venv/bin/python" python3 -B build/test-safety-hooks.py
+python3 -B build/test-mcp-bootstrap.py
+python3 -B build/test-fff.py
+python3 -B build/test-entire.py
+python3 -B build/test-docs.py
+```
+
+这些检查使用隔离目录；不会通过测试合并远端 PR。完整镜像验证使用：
+
+```bash
+docker buildx build --target smoke --file build/Dockerfile .
 ```

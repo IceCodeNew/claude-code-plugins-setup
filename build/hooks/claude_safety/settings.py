@@ -3,19 +3,17 @@
 import argparse
 import json
 import os
-import sys
 import tempfile
 from pathlib import Path
 
 ROLES = {
-    "block-rm": ("PreToolUse", "Bash", "block_rm"),
-    "require-tmux": ("PreToolUse", "Bash", "require_tmux"),
+    "block-rm": ("PreToolUse", "Bash"),
+    "require-tmux": ("PreToolUse", "Bash"),
     "protected-branches": (
         "PreToolUse",
         "Bash|mcp__.*__merge_pull_request",
-        "protected_branches",
     ),
-    "post-edit-check": ("PostToolUse", "Write|Edit", "post_edit_check"),
+    "post-edit-check": ("PostToolUse", "Write|Edit"),
 }
 
 
@@ -31,18 +29,26 @@ def main():
     original = json.dumps(data, sort_keys=True)
     hooks = data.setdefault("hooks", {})
     env = data.setdefault("env", {})
+    root = Path(__file__).resolve().parents[1]
+    scripts = {str(root / (name + ".sh")) for name in ROLES}
+    modules = {"claude_safety." + role.replace("-", "_") for role in ROLES}
     for entries in hooks.values():
         for entry in entries:
             entry["hooks"] = [
                 hook
                 for hook in entry.get("hooks", [])
-                if not any(
-                    value in {"claude_safety." + role[2] for role in ROLES.values()}
-                    for value in hook.get("args", [])
+                if not (
+                    hook.get("command") == "sh"
+                    and hook.get("args", [])[:1]
+                    and hook["args"][0] in scripts
+                )
+                and not (
+                    hook.get("args", [])[:2] == ["-I", "-m"]
+                    and hook.get("args", [""])[-1] in modules
                 )
             ]
         entries[:] = [entry for entry in entries if entry.get("hooks")]
-    for role, (event, matcher, module) in ROLES.items():
+    for role, (event, matcher) in ROLES.items():
         key = "CLAUDE_DEV_HOOK_" + role.upper().replace("-", "_")
         if role in (args.disable or []):
             env[key] = "0"
@@ -59,8 +65,8 @@ def main():
                 "hooks": [
                     {
                         "type": "command",
-                        "command": sys.executable,
-                        "args": ["-I", "-m", "claude_safety." + module],
+                        "command": "sh",
+                        "args": [str(root / (role + ".sh"))],
                         "timeout": 30,
                         "onFailure": "block",
                     }

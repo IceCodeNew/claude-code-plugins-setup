@@ -7,7 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-PYTHON = "/opt/claude-safety/bin/python"
+PYTHON = os.environ.get("CLAUDE_HOOK_PYTHON", "/opt/claude-safety/bin/python")
+HOOKS = Path(os.environ.get("CLAUDE_HOOKS_DIR", Path(__file__).with_name("hooks")))
 
 
 class UserSafety(unittest.TestCase):
@@ -25,6 +26,7 @@ class UserSafety(unittest.TestCase):
             **os.environ,
             "HOME": str(self.root),
             "XDG_STATE_HOME": str(self.root / "state"),
+            "CLAUDE_HOOK_PYTHON": PYTHON,
         }
         # A protocol fixture: only the read-only gh operations used by the policy exist.
         binary = self.root / "bin"
@@ -40,9 +42,9 @@ elif args[:1]==["api"] and "pulls/" in args[-1]:
  endpoint=args[-1].split("/"); number=int(endpoint[-1]); repo="/".join(endpoint[1:3])
  print(json.dumps({"number":number,"base":{"ref":({9:"feature/integration",8:"prod",7:"custom-protected"}.get(number,"trunk")),"repo":{"full_name":repo,"default_branch":"trunk"}}}))
 elif args[:1]==["api"] and any("branches?protected=true" in arg for arg in args):
- print(json.dumps([[{"name":"custom-protected","protected":True}]]))
+ print(json.dumps([[{"name":os.environ.get("GH_FIXTURE_PROTECTED", "custom-protected"),"protected":True}]]))
 elif args[:1]==["api"] and args[-1].startswith("repos/"):
- print(json.dumps({"full_name":args[-1][6:],"default_branch":"feature" if args[-1].endswith("other/repo") else "trunk"}))
+ print(json.dumps({"full_name":args[-1][6:],"default_branch":os.environ.get("GH_FIXTURE_DEFAULT", "feature" if args[-1].endswith("other/repo") else "trunk")}))
 else: sys.exit("Unsupported fixture operation: "+repr(args))
 """)
         gh.chmod(0o755)
@@ -70,7 +72,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         }[policy]
         for module in modules:
             result = subprocess.run(
-                [PYTHON, "-I", "-m", "claude_safety." + module],
+                ["sh", str(HOOKS / (module.replace("_", "-") + ".sh"))],
                 input=json.dumps(payload),
                 env=self.env,
                 capture_output=True,
@@ -91,6 +93,61 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         return self.invoke(
             "record", hook_event_name="UserPromptSubmit", prompt=text, **values
         )
+
+    def test_user_can_call_shell_hooks_from_another_harness(self):
+        """Given JSON on stdin / When calling the shell hook / Then no package installation is needed."""
+        payload = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "rm -- owned-file"},
+            "permission_mode": "default",
+            "cwd": str(self.root),
+            "session_id": "portable-hook",
+        }
+        script = HOOKS / "block-rm.sh"
+        result = subprocess.run(
+            ["sh", str(script)],
+            input=json.dumps(payload),
+            cwd=self.root,
+            env={**self.env, "CLAUDE_HOOK_PYTHON": PYTHON},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.denied(json.loads(result.stdout)))
+
+    def test_user_interactive_rm_reminds_instead_of_deleting(self):
+        """Given the configured interactive alias / When rm is typed / Then the file stays recoverable."""
+        file = self.root / "alias-owned-file"
+        file.write_text("keep this file")
+        bashrc = os.environ.get("CLAUDE_DEV_BASHRC")
+        if bashrc is None:
+            dockerfile = Path(__file__).with_name("Dockerfile").read_text()
+            alias = dockerfile.split("<<'ALIASES'\n", 1)[1].split("\nALIASES", 1)[0]
+            fixture = self.root / "bashrc"
+            fixture.write_text(alias + "\n")
+            bashrc = str(fixture)
+        result = subprocess.run(
+            [
+                "bash",
+                "--noprofile",
+                "--rcfile",
+                bashrc,
+                "-ic",
+                'rm -- "$1"',
+                "--",
+                str(file),
+            ],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("trash-put", result.stdout + result.stderr)
+        self.assertTrue(file.exists())
 
     def test_user_cannot_execute_rm_in_any_mode(self):
         """Given any mode / When rm executes / Then trash-cli is required."""
@@ -259,8 +316,8 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
                     mixed,
                     {
                         "type": "command",
-                        "command": PYTHON,
-                        "args": ["-I", "-m", "claude_safety.block_rm"],
+                        "command": "sh",
+                        "args": [str(HOOKS / "block-rm.sh")],
                     },
                 ],
             }
@@ -274,7 +331,7 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         path.write_text(json.dumps(existing))
         for _ in range(2):
             subprocess.run(
-                [PYTHON, "-I", "-m", "claude_safety.settings"], env=self.env, check=True
+                ["sh", str(HOOKS / "configure-claude.sh")], env=self.env, check=True
             )
         data = json.loads(path.read_text())
         self.assertEqual(data["hooks"]["Stop"], existing["hooks"]["Stop"])
@@ -286,9 +343,9 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         for event in ("PreToolUse", "UserPromptSubmit"):
             for group in data["hooks"][event]:
                 for hook in group["hooks"]:
-                    if any(
-                        arg.startswith("claude_safety.") for arg in hook.get("args", [])
-                    ):
+                    if hook.get("command") == "sh" and hook.get("args", [""])[
+                        0
+                    ].startswith(str(HOOKS) + "/"):
                         self.assertEqual(hook["onFailure"], "block")
 
     def test_user_opaque_merge_forms_fail_closed(self):
@@ -395,6 +452,25 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             self.denied(self.invoke("pre", "git push --force origin feature"))
         )
 
+    def test_user_development_and_staging_names_are_not_protected_by_default(self):
+        """Given an ordinary dev or staging branch / When pushed / Then the name alone does not block it."""
+        for branch in ("dev", "dev/work", "develop", "development", "staging"):
+            with self.subTest(branch=branch):
+                self.assertFalse(
+                    self.denied(
+                        self.invoke("pre", f"git push origin HEAD:refs/heads/{branch}")
+                    )
+                )
+        self.env["GH_FIXTURE_DEFAULT"] = "staging"
+        self.assertTrue(
+            self.denied(self.invoke("pre", "git push origin HEAD:refs/heads/staging"))
+        )
+        self.env.pop("GH_FIXTURE_DEFAULT")
+        self.env["GH_FIXTURE_PROTECTED"] = "develop"
+        self.assertTrue(
+            self.denied(self.invoke("pre", "git push origin HEAD:refs/heads/develop"))
+        )
+
     def test_user_every_remote_push_destination_is_protected(self):
         """Given two push URLs / When one protects the target / Then no push is allowed."""
         subprocess.run(
@@ -483,10 +559,96 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             {},
         )
 
+    def test_user_previous_module_registration_is_replaced_by_shell_entrypoint(self):
+        """Given the previous managed registration / When configured / Then disabled hooks do not survive migration."""
+        directory = self.root / "config"
+        directory.mkdir()
+        path = directory / "settings.json"
+        unrelated = {"type": "command", "command": "printf unrelated"}
+        path.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Bash",
+                                "hooks": [
+                                    unrelated,
+                                    {
+                                        "type": "command",
+                                        "command": PYTHON,
+                                        "args": [
+                                            "-I",
+                                            "-m",
+                                            "claude_safety.post_edit_check",
+                                        ],
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+        )
+        subprocess.run(
+            ["sh", str(HOOKS / "configure-claude.sh"), "--disable", "post-edit-check"],
+            env={**self.env, "CLAUDE_CONFIG_DIR": str(directory)},
+            check=True,
+        )
+        hooks = [
+            hook
+            for groups in json.loads(path.read_text())["hooks"].values()
+            for group in groups
+            for hook in group["hooks"]
+        ]
+        self.assertIn(unrelated, hooks)
+        self.assertFalse(
+            any(
+                "claude_safety.post_edit_check" in hook.get("args", [])
+                for hook in hooks
+            )
+        )
+        self.assertFalse(
+            any(
+                str(HOOKS / "post-edit-check.sh") in hook.get("args", [])
+                for hook in hooks
+            )
+        )
+
+    def test_user_hook_checkout_path_is_not_shell_syntax(self):
+        """Given a copied checkout with spaces and punctuation / When registered / Then the exact script runs."""
+        import shutil
+
+        directory = self.root / "copied hooks;literal"
+        shutil.copytree(HOOKS, directory)
+        config = self.root / "copy-config"
+        env = {**self.env, "CLAUDE_CONFIG_DIR": str(config)}
+        subprocess.run(
+            ["sh", str(directory / "configure-claude.sh")], env=env, check=True
+        )
+        data = json.loads((config / "settings.json").read_text())
+        hook = next(
+            hook
+            for group in data["hooks"]["PreToolUse"]
+            for hook in group["hooks"]
+            if str(directory / "block-rm.sh") in hook.get("args", [])
+        )
+        payload = {"tool_name": "Bash", "tool_input": {"command": "rm file"}}
+        result = subprocess.run(
+            [hook["command"], *hook["args"]],
+            input=json.dumps(payload),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.denied(json.loads(result.stdout)))
+
     def test_user_can_disable_one_role_without_disabling_other_guards(self):
         """Given independent hooks / When a role is disabled / Then other roles stay enabled."""
         env = {**self.env, "CLAUDE_CONFIG_DIR": str(self.root / "config")}
-        command = [PYTHON, "-I", "-m", "claude_safety.settings"]
+        command = ["sh", str(HOOKS / "configure-claude.sh")]
         result = subprocess.run(
             [*command, "--disable", "require-tmux", "post-edit-check"],
             env=env,
@@ -500,15 +662,13 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
         subprocess.run(command, env=env, check=True)
         self.assertEqual(path.read_bytes(), disabled)
         groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
-        modules = {group["hooks"][0]["args"][2] for group in groups}
-        self.assertEqual(
-            modules, {"claude_safety.block_rm", "claude_safety.protected_branches"}
-        )
+        scripts = {Path(group["hooks"][0]["args"][0]).name for group in groups}
+        self.assertEqual(scripts, {"block-rm.sh", "protected-branches.sh"})
         subprocess.run([*command, "--enable", "require-tmux"], env=env, check=True)
         groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
-        modules = {group["hooks"][0]["args"][2] for group in groups}
-        self.assertIn("claude_safety.require_tmux", modules)
-        self.assertNotIn("claude_safety.post_edit_check", modules)
+        scripts = {Path(group["hooks"][0]["args"][0]).name for group in groups}
+        self.assertIn("require-tmux.sh", scripts)
+        self.assertNotIn("post-edit-check.sh", scripts)
 
 
 if __name__ == "__main__":
