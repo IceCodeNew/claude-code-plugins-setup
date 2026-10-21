@@ -90,7 +90,7 @@ jobs:
           retention-days: 1
 
   claude-dev-multiarch:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - claude-dev
     steps:
