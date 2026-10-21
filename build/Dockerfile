@@ -503,7 +503,6 @@ RUN <<EOF
 set -euo pipefail
 claude --version
 fff-mcp --version
-entire version
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
 python3 /tmp/test-fff.py
