@@ -16,9 +16,9 @@ mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。ralph-loop �
 
 ```bash
 # Debian / Ubuntu
-sudo apt update && sudo apt install -y git curl lsof tmux
+sudo apt update && sudo apt install -y git curl lsof tmux trash-cli
 # Fedora
-# sudo dnf install -y git curl lsof tmux
+# sudo dnf install -y git curl lsof tmux trash-cli
 ```
 
 安装 mise 并在 shell 里激活：
@@ -423,7 +423,58 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
 
 该命令关闭自动推送 checkpoint，不保证完全不联网。镜像默认设置 `ENTIRE_TELEMETRY_OPTOUT=1`，不禁用自动更新。远程历史检索仍需单独登录；技能中的跨会话检索和提交关联操作也需按实际工作流确认。
 
-### 4.6 重新加载
+### 4.6 安全 hooks
+
+镜像安装 `trash-cli`，并通过用户级 `settings.json` 注册 `PreToolUse`、`UserPromptSubmit` 和 `PostToolUse` 规则。按职责拆分的 hook 模块和固定版本的 Bash 解析器位于 `/opt/claude-safety`，不受 home 持久卷覆盖。容器启动时合并缺少的 hook 注册，保留其他插件、hooks 和设置。
+
+- 各执行模式都拒绝直接 `rm`、绝对路径、常见包装命令、命令替换和嵌套 shell 中的 `rm`。使用 `trash-put -- <path>` 代替；不把 `rm` 参数自动转换成回收参数。
+- `bypassPermissions` 模式下，将 PR 合并到受保护分支前必须取得当前会话的明确授权。普通权限模式保持原有权限处理。
+
+另有两项执行限制：禁止直接 push 到受保护分支；普通功能分支的 push 和 force push 不额外限制；dev server 需要在 tmux 中运行。编辑后的 Python/JS/TS/Rust/Go 文件使用本地 ruff、oxlint、rustfmt、gofmt 检查，缺少工具时明确提示并跳过，不运行 npx 下载或整个项目构建。检查保留退出状态和完整诊断，最长运行 20 秒；项目级检查仍需显式执行。
+
+在当前仓库的对话中，单独回复完整的一行即可授权指定 PR：
+
+```text
+允许合并 PR #123
+```
+
+直接 push 无法使用 PR 授权绕过，必须改走 PR；隐式目标、带通配 refspec 或批量 push 无法明确目标时拒绝并要求指定分支。remote 配置 push 映射时，需写明 `source:refs/heads/destination`，避免源分支名称掩盖实际目标。
+
+授权绑定当前会话、GitHub host、仓库和 PR，不跨会话复用；同一会话恢复或压缩不清除授权。撤销使用 `撤销合并 PR #123`，会移除当前会话中同编号 PR 的授权，不依赖网络；也可单独回复 `撤销所有合并授权`。引用、代码示例、工具结果和已标识的自动消息不提供授权。CLI/Paseo 宿主必须如实传递用户输入；hook 无法区分宿主伪造的、与人类输入完全相同的裸文本。
+
+合并被拒绝时，hook 要求 agent 用普通消息申请授权，同时继续测试、文档和其他不依赖该合并的工作，不使用阻塞式提问。授权不会自行执行合并。撤销只影响后续调用，不能取消已经提交给 GitHub 的自动合并或队列任务。
+
+合并规则覆盖 `gh pr merge`（含 `--auto`）、REST 合并和 GitHub MCP 的 `merge_pull_request`。GraphQL 合并、自动合并或不透明请求体拒绝执行，改用明确的 `gh pr merge <number> -R owner/repo`。分支保护由同一规则判断：读取目标仓库的默认分支和 GitHub 受保护分支列表，再匹配随模块发布的 `protected-branches.json` 常见名称/路径策略，覆盖 main/master、prod/production、release/stable 等。名称不散落在各 hook 中；元数据、状态或脚本失败时拒绝相关操作。新建功能分支无需先存在于远端。
+
+这些 hooks 是 agent 工具调用保护，不是进程隔离。它们不会扫描任意 Python/Node 脚本、改名二进制或其他程序内部的子进程；不保证抵御主动修改用户配置、sudo 或伪造消息的恶意 agent。无法解析的 shell 语法会保守拒绝，拆成明确命令后再执行。普通文本里的 `rm` 不受限制。
+
+已有环境可运行同一注册入口；之后用 `/hooks` 检查，必要时重启会话：
+
+```bash
+/opt/claude-safety/bin/python -I -m claude_safety.settings
+trash-put --version
+```
+
+每个 hook 独立注册，可按需启停：
+
+| 名称 | 模块 | 职责 |
+|---|---|---|
+| `block-rm` | `block_rm.py` | 各模式拒绝 shell `rm` |
+| `require-tmux` | `require_tmux.py` | dev server 使用 tmux |
+| `protected-branches` | `protected_branches.py` | 统一检查 push 与 PR 合并、记录指定 PR 授权 |
+| `post-edit-check` | `post_edit_check.py` | 编辑后文件级诊断 |
+
+例如，仅关闭编辑后检查，或重新启用它：
+
+```bash
+/opt/claude-safety/bin/python -I -m claude_safety.settings --disable post-edit-check
+/opt/claude-safety/bin/python -I -m claude_safety.settings --enable post-edit-check
+```
+
+可在同一命令后列出多个名称。选择保存在用户 `settings.json`，容器启动时不会重新启用已禁用项；`/hooks` 可查看各独立注册，修改后重启会话。`protected-branches` 的 push、授权记录与合并检查作为同一职责一起启停。
+
+
+### 4.7 重新加载
 
 在已经运行的 claude 会话里执行 `/reload-skills`，新装的技能就能用；新开的会话会自动加载。
 

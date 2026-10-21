@@ -10,6 +10,7 @@ Claude Code 插件清单，以及用 mise/uv 管理依赖的安装手册
 
 镜像还通过官方安装脚本安装 fff MCP v0.11.0，注册为 Claude Code 的 user-scope stdio server `fff`，并从 [IceCodeNew/searching-with-fff](https://github.com/IceCodeNew/searching-with-fff) 的固定提交安装通用技能和 routing 文档。本仓库不保留技能副本；Amp 专属文档和 MCP 配置不进入镜像。技能引导仓库搜索，不拦截 Grep/Glob 或 shell 命令；不新增 hooks，不写入 `CLAUDE.md`，不改变全局 Tool Search 配置。需要避免无关项目加载 fff 时，见手册 4.4 节的作用域和启停说明。技能也链接给 Codex，但镜像不为 Codex 注册 fff MCP。
 
+镜像提供 `trash-cli` 和操作保护 hooks：各模式禁止 `rm`；受保护分支写入由独立 hook 统一检查，bypass 模式的 PR 合并需要指定 PR 的会话授权。说明见[手册「安全 hooks」](claude-plugins-setup.md#46-安全-hooks)。
 镜像包含 Entire CLI 和官方 `entire@entire-skills` 插件，但不自动启用会话记录。启用与上传范围见[手册 4.5 节](claude-plugins-setup.md#45-entire-cli-与官方技能)。
 
 容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。nonroot 有免密 sudo，需要 root 时用 `sudo -i`。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。

@@ -55,7 +55,9 @@ RUN extrepo enable mise \
         plocate procps psmisc px \
         ripgrep rsync \
         sudo \
-        tmux vim \
+        tmux trash-cli \
+        vim \
+        zstd \
     && rm -f /etc/ssh/ssh_host_* \
     && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nonroot
 COPY --link <<sshd_config /etc/ssh/sshd_config.d/nonroot.conf
@@ -392,6 +394,15 @@ ln -s "${HOME}/.claude/skills/searching-with-fff" "${HOME}/.agents/skills/search
 EOF
 
 
+FROM mise AS safety
+USER root:root
+COPY --link --from=uv-bin /uv /usr/local/bin/uv
+COPY --link build/hooks/ /tmp/hooks/
+RUN uv venv --python /usr/bin/python3 /opt/claude-safety \
+    && uv pip install --python /opt/claude-safety/bin/python /tmp/hooks \
+    && chmod -R a+rX /opt/claude-safety
+
+
 FROM mise AS runtime
 USER root:root
 # Codex's Linux sandbox runs the first bwrap on PATH; without one it warns and falls back to
@@ -407,6 +418,7 @@ USER nonroot:nonroot
 
 
 FROM runtime AS final
+COPY --link --from=safety /opt/claude-safety /opt/claude-safety
 ENV ENTIRE_TELEMETRY_OPTOUT=1
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
@@ -470,6 +482,7 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
+/opt/claude-safety/bin/python -I -m claude_safety.settings
 /entrypoint.sh --init-mcp
 sed -i '1i eval "$(mise activate bash)"\nalias cr=coderabbit' "${HOME}/.bashrc"
 EOF
@@ -480,11 +493,13 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/entrypoint.sh /tmp/
+COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/test-safety-hooks.py build/entrypoint.sh /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
 fff-mcp --version
+trash-put --version
+python3 -B /tmp/test-safety-hooks.py
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
 python3 -B /tmp/test-mcp-bootstrap.py
