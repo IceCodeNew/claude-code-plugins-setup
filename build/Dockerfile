@@ -229,7 +229,6 @@ EOF
 # refetch every plugin and skill. gh and ripwire come from the cli stage.
 FROM npm-tools AS agent-config
 COPY --link --from=cli /home/ /home/
-ARG ENTIRE_SKILLS_REVISION=fe5266f76d846222c73b080ce39fd803dd705198
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -248,6 +247,7 @@ claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace add typesafe-ai/skills
+claude plugin marketplace add entireio/skills
 
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare code-review \
@@ -265,12 +265,6 @@ claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
 
-entire_skills="${HOME}/git/entire-skills"
-git init -q "$entire_skills"
-git -C "$entire_skills" fetch --depth 1 https://github.com/entireio/skills.git "$ENTIRE_SKILLS_REVISION"
-git -C "$entire_skills" checkout --detach -q FETCH_HEAD
-test "$(git -C "$entire_skills" rev-parse HEAD)" = "$ENTIRE_SKILLS_REVISION"
-claude plugin marketplace add "$entire_skills"
 claude plugin install entire@entire-skills --scope user
 
 for p in claude-security redis-development modern-web-guidance; do

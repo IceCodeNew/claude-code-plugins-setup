@@ -386,14 +386,10 @@ curl -fsSL https://entire.io/install.sh | bash -s -- --version <version>
 entire version
 ```
 
-镜像使用 `ENTIRE_SKILLS_REVISION` 固定官方技能提交。手动安装同一提交时，将 Dockerfile 中该变量的值赋给 `revision`，并保留 checkout：
+官方技能与其他插件相同，跟随上游默认分支安装：
 
 ```bash
-checkout="$HOME/git/entire-skills"
-git init "$checkout"
-git -C "$checkout" fetch --depth 1 https://github.com/entireio/skills.git "$revision"
-git -C "$checkout" checkout --detach FETCH_HEAD
-claude plugin marketplace add "$checkout"
+claude plugin marketplace add entireio/skills
 claude plugin install entire@entire-skills --scope user
 ```
 
