@@ -493,14 +493,14 @@ printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"per
 在镜像中配置所有默认 hooks：
 
 ```bash
-/opt/claude-safety/hooks/configure-claude.sh
+sh /opt/claude-safety/hooks/configure-claude.sh
 ```
 
 仅关闭或重新启用编辑后检查：
 
 ```bash
-/opt/claude-safety/hooks/configure-claude.sh --disable post-edit-check
-/opt/claude-safety/hooks/configure-claude.sh --enable post-edit-check
+sh /opt/claude-safety/hooks/configure-claude.sh --disable post-edit-check
+sh /opt/claude-safety/hooks/configure-claude.sh --enable post-edit-check
 ```
 
 手动安装把上述路径换成 checkout 中的 `build/hooks/configure-claude.sh`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。

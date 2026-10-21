@@ -484,7 +484,7 @@ _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", crea
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
 CONFIG
 mise reshim
-/opt/claude-safety/hooks/configure-claude.sh
+sh /opt/claude-safety/hooks/configure-claude.sh
 /entrypoint.sh --init-mcp
 cat >> "${HOME}/.bashrc" <<'ALIASES'
 alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'
