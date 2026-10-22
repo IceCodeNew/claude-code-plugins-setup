@@ -468,7 +468,7 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
 | `post-edit-check.py` | 编辑后文件级诊断 | 写入或编辑后 |
 | `configure-claude.py` | 仅配置 Claude Code 的 hook 注册及启停 | 手动执行或镜像启动 |
 
-镜像复用 `/usr/bin/python3.13`，只向其本地依赖目录补充 `bashlex`；脚本放在 `/opt/claude-safety/hooks`，不创建 hooks 专用 venv。解释器、依赖和脚本都不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
+镜像在 Dockerfile 的 `venv` 阶段统一安装 Python 依赖。hooks 复用 `/usr/bin/python3.13`，只向其本地依赖目录补充 `bashlex`；脚本放在 `/opt/claude-safety/hooks`，不创建 hooks 专用 venv。解释器、依赖和脚本都不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
 
 ```bash
 uv venv --python 3.13 "$HOME/.local/share/claude-hooks-venv"

@@ -206,9 +206,9 @@ FROM npm-tools AS browsers
 RUN playwright-core install --no-shell chromium
 
 
-# Shared venv for claude-agent-sdk (security-guidance), pyyaml (skill-creator), pyright (pyright-lsp)
-# and readability-lxml/html2text (read skill). python 3.13 because security-guidance only probes
-# python3.13 through python3.10. The [env] entry in config.toml points mise at this venv.
+# Python dependencies: shared plugin venv and the parser for system-Python hooks.
+# Python 3.13 because security-guidance only probes python3.13 through python3.10.
+# The [env] entry in config.toml points mise at the plugin venv.
 FROM mise AS venv
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
 COPY --link --from=uv-bin /uv /usr/local/bin/
@@ -219,6 +219,9 @@ export UV_LINK_MODE=copy
 uv venv --python /usr/bin/python3.13 "${CLAUDE_PLUGINS_VENV}"
 uv pip install --python "${CLAUDE_PLUGINS_VENV}/bin/python" \
     claude-agent-sdk pyyaml pyright readability-lxml html2text
+# Hooks use the image Python outside the persisted home.
+uv pip install --python /usr/bin/python3.13 --target /tmp/runtime-python-deps bashlex==0.18
+chmod -R a+rX /tmp/runtime-python-deps
 # claude-agent-sdk bundles its own claude (~230M); point it at the one from the claude stage.
 ln -sfn "${HOME}/.local/share/mise/installs/claude-code/latest/claude" \
     "${CLAUDE_PLUGINS_VENV}/lib/python3.13/site-packages/claude_agent_sdk/_bundled/claude"
@@ -394,15 +397,6 @@ ln -s "${HOME}/.claude/skills/searching-with-fff" "${HOME}/.agents/skills/search
 EOF
 
 
-FROM mise AS safety
-USER root:root
-COPY --link --from=uv-bin /uv /usr/local/bin/uv
-RUN uv pip install --python /usr/bin/python3.13 --target /python-deps bashlex==0.18 \
-    && chmod -R a+rX /python-deps
-COPY --link build/hooks/ /opt/claude-safety/hooks/
-RUN chmod -R a+rX /opt/claude-safety/hooks
-
-
 FROM mise AS runtime
 USER root:root
 # Codex's Linux sandbox runs the first bwrap on PATH; without one it warns and falls back to
@@ -418,8 +412,8 @@ USER nonroot:nonroot
 
 
 FROM runtime AS final
-COPY --link --from=safety /python-deps/ /usr/local/lib/python3.13/dist-packages/
-COPY --link --from=safety /opt/claude-safety/hooks/ /opt/claude-safety/hooks/
+COPY --link --from=venv /tmp/runtime-python-deps/ /usr/local/lib/python3.13/dist-packages/
+COPY --link --chmod=755 build/hooks/ /opt/claude-safety/hooks/
 ENV ENTIRE_TELEMETRY_OPTOUT=1
 COPY --link --from=ghcr.io/astral-sh/ruff:0.16.9@sha256:fd4a00e8f586c07495822a1c93702737b9a98d826b76d460caa514df7794f259 /ruff /usr/local/bin/
 COPY --link --from=ghcr.io/astral-sh/ty:0.0.84@sha256:bfbe9542ee3a7b7c644f0b470cf1bd99543a7598aeb9e539ef121f9a9b7b2784 /ty /usr/local/bin/
