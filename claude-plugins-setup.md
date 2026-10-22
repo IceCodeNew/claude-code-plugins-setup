@@ -5,7 +5,7 @@
 | 安装内容 | 管理方式 |
 |---|---|
 | 命令行工具 | mise；手动步骤通常跟随上游最新版本，镜像版本以 [Dockerfile](build/Dockerfile) 为准 |
-| Python 依赖 | uv 共享 venv；安全 hooks 单独安装 Bash 解析器，不依赖插件 venv |
+| Python 依赖 | uv 共享 venv；镜像的安全 hooks 复用系统 Python，仅补充 Bash 解析器，不依赖插件 venv |
 | Claude 插件 | user-scope marketplace 安装；[清单](claude-plugins.tsv)是状态快照，非版本锁文件 |
 | 独立技能 | 安装到 `~/.claude/skills`，镜像逐个链接到 Codex 使用的 `~/.agents/skills` |
 
@@ -468,7 +468,7 @@ ENTIRE_TELEMETRY_OPTOUT=1 entire enable --agent claude-code --local \
 | `post-edit-check.py` | 编辑后文件级诊断 | 写入或编辑后 |
 | `configure-claude.py` | 仅配置 Claude Code 的 hook 注册及启停 | 手动执行或镜像启动 |
 
-镜像将脚本和解析器放在 `/opt/claude-safety`，不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
+镜像复用 `/usr/bin/python3.13`，只向其本地依赖目录补充 `bashlex`；脚本放在 `/opt/claude-safety/hooks`，不创建 hooks 专用 venv。解释器、依赖和脚本都不受 home 卷覆盖，并自动注册 Claude Code hooks。手动安装在本仓库根目录执行，checkout 需长期保留：
 
 ```bash
 uv venv --python 3.13 "$HOME/.local/share/claude-hooks-venv"
@@ -492,14 +492,14 @@ printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"per
 在镜像中配置所有默认 hooks：
 
 ```bash
-/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py
+/usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py
 ```
 
 仅关闭或重新启用编辑后检查：
 
 ```bash
-/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py --disable post-edit-check
-/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py --enable post-edit-check
+/usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py --disable post-edit-check
+/usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py --enable post-edit-check
 ```
 
 手动安装使用已安装 `bashlex` 的 Python 解释器，并将脚本路径换成 checkout 中的 `build/hooks/configure-claude.py`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。
