@@ -1,34 +1,38 @@
 # claude-code-plugins-setup
-Claude Code 插件清单，以及用 mise/uv 管理依赖的安装手册
 
-- `claude-plugins-setup.md`：在一台全新机器上手动安装的步骤
-- `build/Dockerfile`：同一套环境的 Docker 镜像 `claude-dev`
+预装开发工具、Claude Code 插件与技能的 Linux 开发镜像，也提供使用 mise 和 uv 的[手动安装手册](claude-plugins-setup.md)。镜像包含 Claude Code、Codex、Chromium、fff MCP、Entire CLI 和可选安全 hooks；各服务的登录凭据需自行配置。
 
-## claude-dev 镜像
+## 快速使用
 
-镜像按 `claude-plugins-setup.md` 第 1 到第 4 节构建：mise 工具、共享 Python venv、Claude Code 插件和第三方技能都已装好。另外用 mise 装了 `@getpaseo/cli`（命令 `paseo`）、playwright-core 和它的 Chromium（含系统依赖）；`vim` 由 apt 安装。Chromium 供无头浏览器测试使用。插件只装给 Claude Code；技能装在 `~/.claude/skills`，并逐个软链接到 Codex 读取的 `~/.agents/skills`。
-
-镜像还通过官方安装脚本安装 fff MCP v0.11.0，注册为 Claude Code 的 user-scope stdio server `fff`，并从 [IceCodeNew/searching-with-fff](https://github.com/IceCodeNew/searching-with-fff) 的固定提交安装通用技能和 routing 文档。本仓库不保留技能副本；Amp 专属文档和 MCP 配置不进入镜像。技能引导仓库搜索，不拦截 Grep/Glob 或 shell 命令；不新增 hooks，不写入 `CLAUDE.md`，不改变全局 Tool Search 配置。需要避免无关项目加载 fff 时，见手册 4.4 节的作用域和启停说明。技能也链接给 Codex，但镜像不为 Codex 注册 fff MCP。
-
-镜像包含 Entire CLI 和官方 `entire@entire-skills` 插件，但不自动启用会话记录。启用与上传范围见[手册 4.5 节](claude-plugins-setup.md#45-entire-cli-与官方技能)。
-
-容器以 nonroot（uid 65532）运行 sshd，端口 8964，只允许公钥登录。nonroot 有免密 sudo，需要 root 时用 `sudo -i`。主机密钥在首次启动时生成，保存在 `~/.ssh`。公钥可以通过环境变量 `SSH_AUTHORIZED_KEYS` 传入，也可以直接挂载 `/home/nonroot/.ssh/authorized_keys`。
-
-本地构建：
+需要 Docker Buildx、SSH 客户端和可用的 SSH 公钥。在仓库根目录构建并启动：
 
 ```bash
 docker buildx build --load -t claude-dev --file build/Dockerfile .
-```
-
-运行并登录：
-
-```bash
 docker run -d --name claude-dev -p 8964:8964 \
   -e SSH_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" \
   claude-dev
 ssh -p 8964 nonroot@localhost
 ```
 
-登录 shell 会执行 `mise activate`，所以工具、共享 venv 和 `GITHUB_PERSONAL_ACCESS_TOKEN` 都可用。各插件的登录与认证仍需在容器里手动完成，见 `claude-plugins-setup.md` 第 5 节。要在重建容器后保留登录状态，把 `/home/nonroot` 挂载为卷。启动时会补齐镜像默认清单中缺失的 MCP 注册，已有自定义配置和项目禁用记录保持不变；停用及修复步骤见手册「持久化 home 的注册修复」。
+容器只接受公钥登录，以 nonroot（UID 65532）运行 sshd。nonroot 有免密 sudo，适合作为可信开发环境，不应当作多租户安全隔离。
 
-`.github/workflows/build.yml` 在 master 分支上构建 `linux/amd64` 和 `linux/arm64` 镜像，并以 `CLAUDE_CODE_VERSION` 为标签推送到 Docker Hub。版本号由 Renovate 按 `renovate.json` 更新。
+首次登录后，完成[认证](claude-plugins-setup.md#5-登录与认证)，再按[验证步骤](claude-plugins-setup.md#6-验证)检查工具。无需容器时，从[手动安装](claude-plugins-setup.md#1-系统包和-mise)开始。
+
+## 使用范围
+
+| 功能 | 默认行为与说明 |
+|---|---|
+| 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能链接给 Codex，Claude 插件不跨工具注册 |
+| fff MCP | 为 Claude Code 注册本地搜索服务；[作用域、启停与持久化配置修复](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
+| Entire | 通过 mise 安装 CLI 和官方插件，不自动启用会话记录；[启用与上传范围](claude-plugins-setup.md#45-entire-cli-与官方技能) |
+| 安全 hooks | 独立 Python hooks 限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；[按需启停与跨 harness 使用](claude-plugins-setup.md#46-安全-hooks) |
+| 文件回收 | 安装 trash-cli；交互式 `rm` 仅提醒使用 `trash-put` 并返回失败，不把 `rm` 参数自动改写为回收操作 |
+
+重建容器前可将 `/home/nonroot` 挂载为卷保留状态。持久卷也会遮住新镜像中的工具、插件和技能；升级方法见[持久化 home](claude-plugins-setup.md#持久化-home-的注册修复)。MCP 注册补齐不等于整体升级该卷。
+
+## 安装与构建资料
+
+- [安装手册](claude-plugins-setup.md)：工具、插件、技能、MCP、hooks、认证和验证。
+- [插件清单](claude-plugins.tsv)：安装状态快照，不是版本锁文件。
+- [Dockerfile](build/Dockerfile)：镜像安装内容和版本的来源。
+- [镜像工作流](.github/workflows/build.yml)：构建并验证 `linux/amd64`、`linux/arm64`，按工作流中的标签规则发布。
