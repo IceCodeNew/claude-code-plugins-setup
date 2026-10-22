@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-PYTHON = os.environ.get("CLAUDE_HOOK_PYTHON", "/opt/claude-safety/bin/python")
+PYTHON = os.environ.get("CLAUDE_HOOK_PYTHON", "/usr/bin/python3.13")
 HOOKS = Path(os.environ.get("CLAUDE_HOOKS_DIR", Path(__file__).with_name("hooks")))
 
 

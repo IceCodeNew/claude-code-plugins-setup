@@ -29,7 +29,7 @@ if ! init_mcp /usr/local/share/claude-dev/mcp.json; then
     echo 'Warning: MCP bootstrap failed; repair the Claude configuration and run /entrypoint.sh --init-mcp.' >&2
 fi
 
-/opt/claude-safety/bin/python -E -s /opt/claude-safety/hooks/configure-claude.py
+/usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py
 
 CRONTAB_PATH="${CRONTAB_PATH:-/home/nonroot/crontab}"
 touch "${CRONTAB_PATH}"
