@@ -59,6 +59,15 @@ class UserDocumentation(unittest.TestCase):
         self.assertIn("trash-put", alias)
         self.assertIn("false", alias)
 
+    def test_user_double_shot_latte_patch_matches_the_image(self):
+        """Given manual or image setup / When double-shot-latte is patched / Then both use one edit."""
+        dockerfile = (ROOT / "build/Dockerfile").read_text()
+        setup = (ROOT / "claude-plugins-setup.md").read_text()
+        commands = re.findall(r"^sed -i '[^']*BASH_SOURCE[^']*'", dockerfile, re.MULTILINE)
+        self.assertEqual(len(commands), 1)
+        self.assertIn(commands[0], setup)
+        self.assertIn("double-shot-latte/*/hooks/run-hook.cmd", setup)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -234,6 +234,15 @@ claude plugin install typesafe@typesafe-ai --scope user
 
 在脚本或管道里跑、stdin/stdout 不是终端时，给需要确认的安装加 `-y`。
 
+`double-shot-latte` 1.2.0 的 `hooks/run-hook.cmd` 没有 shebang，Claude Code 运行 Stop hook 时由 `/bin/sh` 解释。Debian、Ubuntu 的 `/bin/sh` 是 dash，不支持其中的 `${BASH_SOURCE[0]}`，每次触发都报 `Bad substitution`，判断脚本不会运行（[上游 issue](https://github.com/obra/double-shot-latte/issues/37)）。安装后改为 POSIX 写法：
+
+```bash
+sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
+  ~/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
+```
+
+修改位于插件缓存，重装或更新该插件后需重新执行。镜像构建时已执行；已有持久化 home 保留旧缓存，需要在该 home 内执行一次。上游修复后表达式不再匹配，命令不改动文件。检查命令见[验证](#6-验证)。
+
 以下插件装好后禁用：
 
 ```bash
@@ -593,6 +602,8 @@ python -c 'import claude_agent_sdk, yaml; print("claude_agent_sdk + pyyaml ok")'
 # security-guidance 自己的检查：(0, '', '') 表示直接用当前 python，(1, '', '') 表示走软链接回退
 (cd ~/.claude/plugins/cache/claude-plugins-official/security-guidance/*/hooks && \
   python3.13 -c 'import ensure_agent_sdk as e; print(e.main())')
+# double-shot-latte 的 Stop hook 经 dash 启动：应输出 "No transcript available for evaluation"，报 Bad substitution 时执行第 3 节的修改
+echo '{}' | sh ~/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd claude-judge-continuation
 ls -l "$(mise where npm:typescript-language-server)/node_modules/typescript"   # 指向 typescript 6
 rustc --print sysroot | xargs -I{} test -d {}/lib/rustlib/src/rust/library && echo "rust-src ok"
 [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && echo "github token ok" || echo "github token EMPTY"
