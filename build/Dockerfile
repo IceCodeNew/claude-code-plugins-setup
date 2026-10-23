@@ -277,6 +277,12 @@ for p in claude-security redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
 
+# double-shot-latte 1.2.0 ships run-hook.cmd without a shebang, so Claude Code runs it under
+# /bin/sh, and dash rejects its ${BASH_SOURCE[0]} (https://github.com/obra/double-shot-latte/issues/37).
+# Once upstream fixes it the expression no longer matches; the smoke stage runs the hook under dash.
+sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
+    "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
+
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
 git clone --depth 1 https://github.com/ninehills/skills "${HOME}/git/ninehills-skills"
 python3 "${HOME}/git/ninehills-skills/skills-manager" scenarios install Common
@@ -526,6 +532,8 @@ paseo --version
 vim --version >/dev/null
 bwrap --version
 yq --version
+# Claude Code runs double-shot-latte's run-hook.cmd under /bin/sh, which is dash here
+echo '{}' | /bin/sh "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd claude-judge-continuation | jq -e '.decision == "approve"' >/dev/null
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
 EOF
 
