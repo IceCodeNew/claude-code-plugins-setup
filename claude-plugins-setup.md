@@ -246,7 +246,7 @@ sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
 以下插件装好后禁用：
 
 ```bash
-for p in claude-security redis-development modern-web-guidance; do
+for p in redis-development modern-web-guidance; do
   claude plugin disable "$p@claude-plugins-official" --scope user
 done
 ```

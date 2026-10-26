@@ -273,7 +273,7 @@ claude plugin install typesafe@typesafe-ai --scope user
 
 claude plugin install entire@entire-skills --scope user
 
-for p in claude-security redis-development modern-web-guidance; do
+for p in redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
 
@@ -501,6 +501,12 @@ COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test
 RUN <<EOF
 set -euo pipefail
 claude --version
+plugins=$(claude plugin list --json)
+for p in security-guidance claude-security; do
+    jq -e --arg id "$p@claude-plugins-official" \
+        'any(.[]; .id == $id and .scope == "user" and .enabled and ((.errors // []) | length == 0))' \
+        <<< "$plugins" >/dev/null
+done
 fff-mcp --version
 trash-put --version
 CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" python3 -B /tmp/test-safety-hooks.py
