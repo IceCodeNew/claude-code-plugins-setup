@@ -254,6 +254,7 @@ claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace add typesafe-ai/skills
 claude plugin marketplace add entireio/skills
+claude plugin marketplace add trailofbits/skills
 
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare code-review \
@@ -273,7 +274,15 @@ claude plugin install typesafe@typesafe-ai --scope user
 
 claude plugin install entire@entire-skills --scope user
 
-for p in claude-security redis-development modern-web-guidance; do
+for p in \
+    agentic-actions-auditor audit-context-building differential-review fp-check gh-cli \
+    insecure-defaults modern-python regression-hunt review-walkthrough rust-review \
+    sharp-edges static-analysis supply-chain-risk-auditor variant-analysis vulnerability-triage-brocards
+do
+    claude plugin install "$p@trailofbits" --scope user
+done
+
+for p in redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
 
@@ -501,6 +510,21 @@ COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test
 RUN <<EOF
 set -euo pipefail
 claude --version
+plugins=$(claude plugin list --json)
+for p in security-guidance claude-security; do
+    jq -e --arg id "$p@claude-plugins-official" \
+        'any(.[]; .id == $id and .scope == "user" and .enabled and ((.errors // []) | length == 0))' \
+        <<< "$plugins" >/dev/null
+done
+for p in \
+    agentic-actions-auditor audit-context-building differential-review fp-check gh-cli \
+    insecure-defaults modern-python regression-hunt review-walkthrough rust-review \
+    sharp-edges static-analysis supply-chain-risk-auditor variant-analysis vulnerability-triage-brocards
+do
+    jq -e --arg id "$p@trailofbits" \
+        'any(.[]; .id == $id and .scope == "user" and .enabled and ((.errors // []) | length == 0))' \
+        <<< "$plugins" >/dev/null
+done
 fff-mcp --version
 trash-put --version
 CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" python3 -B /tmp/test-safety-hooks.py

@@ -205,6 +205,7 @@ claude plugin marketplace add pydantic/skills
 claude plugin marketplace add JetBrains/go-modern-guidelines
 claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace add typesafe-ai/skills
+claude plugin marketplace add trailofbits/skills
 claude plugin marketplace update
 ```
 
@@ -228,6 +229,24 @@ claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
 ```
 
+安装 [Trail of Bits 插件](https://github.com/trailofbits/skills)：
+
+```bash
+for p in \
+    agentic-actions-auditor audit-context-building differential-review fp-check gh-cli \
+    insecure-defaults modern-python regression-hunt review-walkthrough rust-review \
+    sharp-edges static-analysis supply-chain-risk-auditor variant-analysis vulnerability-triage-brocards
+do
+    claude plugin install "$p@trailofbits" --scope user
+done
+```
+
+插件保留上游名称，通过完整 ID 中的 `@trailofbits` 区分来源，例如 `differential-review@trailofbits`，技能用 `/differential-review:differential-review` 调用。更新时运行 `claude plugin marketplace update trailofbits` 和 `claude plugin update <插件名>@trailofbits`；在 `/plugin` 的 Marketplaces 中为 `trailofbits` 开启 auto-update 后可自动更新，无需本地转换。
+
+`fp-check` 包含 Stop 和 SubagentStop prompt hooks，可能增加模型调用费用。`gh-cli` 的 hooks 会拦截 GitHub 网页抓取及 curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；认证见[登录与认证](#5-登录与认证)。会话结束时会删除该会话的 `gh-clones-<session_id>` 临时克隆目录，其中的修改也会丢失，需保留的工作应放在其他目录。
+
+`modern-python` 在会话启动时添加 PATH shims，拦截直接运行的 python/pip/pipx/uv-pip 命令并提示改用 uv。CodeQL、Semgrep 等分析工具按任务需要另行安装，安装插件不会安装这些工具。
+
 `double-shot-latte` 的 Stop hook 会调用 Claude 判断是否继续，默认使用 Haiku，可能增加调用费用。`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
 
 `typesafe` 来自 [TypeSafe 官方技能仓库](https://github.com/typesafe-ai/skills)，为 Claude Code 提供 TypeSafe API 的使用说明；可用 `/typesafe:typesafe-ai` 调用。更新时运行 `claude plugin marketplace update typesafe-ai` 和 `claude plugin update typesafe@typesafe-ai`。使用 TypeSafe API 时需另行配置 API key，安装插件无需 API key。
@@ -246,7 +265,7 @@ sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
 以下插件装好后禁用：
 
 ```bash
-for p in claude-security redis-development modern-web-guidance; do
+for p in redis-development modern-web-guidance; do
   claude plugin disable "$p@claude-plugins-official" --scope user
 done
 ```
@@ -558,7 +577,7 @@ claude auth login
 
 | 插件 | 要做的事 |
 |---|---|
-| code-review、commit-commands、pr-review-toolkit、coderabbit autofix、superpowers 诊断、github MCP | `gh auth login` |
+| code-review、commit-commands、pr-review-toolkit、coderabbit autofix、superpowers 诊断、github MCP、gh-cli | `gh auth login` |
 | coderabbit | `coderabbit auth login`（EU 区加 `--region eu`） |
 | firecrawl | `firecrawl login --browser`，或 `firecrawl login --api-key fc-...`，或设置环境变量 `FIRECRAWL_API_KEY` |
 | linear、cloudflare MCP | 在 claude 里执行 `/mcp`，选中后在浏览器授权 |
