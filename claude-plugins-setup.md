@@ -538,6 +538,8 @@ printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"per
 
 push 需明确指定目标；不接受未知的变量展开、批量或通配 refspec。remote 配置 push 映射时，需写明 `source:refs/heads/destination`，避免源名称掩盖真实目标。直接 push 不能使用 PR 授权绕过，需改走 PR。
 
+可用独立命令 `git -C /path/to/worktree push origin feature` 选择工作树。支持 `-C <目录>`、`-C<目录>`、相对路径和连续 `-C`；相对路径从前一个目录解析，空 `-C ''` 保持目录不变。remote、push 映射和 HEAD 均在最终目录中检查。此形式仅接受字面参数，不接受其他 Git 前置选项、shell 展开、重定向、wrapper 或复合命令；路径中的 `$`、反引号、`~`、`*`、`?`、方括号和花括号也会保守拒绝。`cd`、`pushd`、`export` 与 push 同句仍被拒绝。
+
 `bypassPermissions` 模式合并受保护分支前，用户在当前仓库的对话中单独回复：
 
 ```text

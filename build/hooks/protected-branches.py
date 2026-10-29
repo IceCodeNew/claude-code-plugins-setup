@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+import bashlex
 from _hook_common import PolicyError, commands, deny, run
 
 
@@ -316,12 +317,42 @@ def protected_branch(host, repo, branch, default, cwd):
     return any(item["name"] == branch for page in pages for item in page)
 
 
-def check_push(words, cwd):
+def check_push(words, cwd, text):
     if Path(words[0]).name != "git" or "push" not in words[1:]:
         return
-    index = words.index("push")
-    if index != 1:
-        raise PolicyError("Run git push as a separate explicit command")
+    index = 1
+    if words[index] != "push":
+        # commands() unwraps shell wrappers and discards assignments. Only extend
+        # support to a direct literal command whose cwd is still the payload cwd.
+        nodes = bashlex.parse(text)
+        if (
+            len(nodes) != 1
+            or nodes[0].kind != "command"
+            or any(part.kind != "word" or part.parts for part in nodes[0].parts)
+            or Path(nodes[0].parts[0].word).name != "git"
+            or any(any(char in word for char in "$`~*?[]{}") for word in words)
+        ):
+            raise PolicyError(
+                "Use a separate literal git -C command without shell context changes"
+            )
+        while index < len(words) and words[index].startswith("-C"):
+            directory = words[index][2:]
+            if words[index] == "-C":
+                index += 1
+                if index == len(words):
+                    raise PolicyError("Missing git -C directory")
+                directory = words[index]
+            if directory:
+                # Resolve each chdir separately: relative paths follow the previous
+                # -C, symlink/.. uses the physical directory, and -C '' is a no-op.
+                cwd = (Path(cwd) / directory).resolve(strict=True)
+                if not cwd.is_dir():
+                    raise PolicyError("git -C requires a directory")
+            index += 1
+        if index == len(words) or words[index] != "push":
+            raise PolicyError(
+                "Only literal git -C directory options are supported before push"
+            )
     args = words[index + 1 :]
     if any("$" in arg or "`" in arg for arg in args):
         raise PolicyError(
@@ -401,7 +432,8 @@ def check(payload):
         return record(payload)
     entries = None
     if payload.get("tool_name") == "Bash":
-        entries = commands(payload.get("tool_input", {}).get("command", ""))
+        text = payload.get("tool_input", {}).get("command", "")
+        entries = commands(text)
         if any(
             Path(words[0]).name == "git" and "push" in words[1:] for words in entries
         ) and any(
@@ -411,7 +443,7 @@ def check(payload):
                 "Run push as a separate command from its target repository"
             )
         for words in entries:
-            check_push(words, payload["cwd"])
+            check_push(words, payload["cwd"], text)
     return check_merge(payload, entries)
 
 
