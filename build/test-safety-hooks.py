@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -36,6 +37,8 @@ class UserSafety(unittest.TestCase):
 import json,sys,os
 args=sys.argv[1:]
 if os.environ.get("GH_FIXTURE_FAIL"): sys.exit(1)
+if os.environ.get("GH_FIXTURE_CWD") and os.getcwd() != os.environ["GH_FIXTURE_CWD"]:
+ sys.exit("GitHub metadata requested from the wrong working directory")
 if args[:2]==["repo","view"]:
  print(json.dumps({"nameWithOwner":"owner/repo","url":"https://github.com/owner/repo"}))
 elif args[:1]==["api"] and "pulls/" in args[-1]:
@@ -405,6 +408,128 @@ else: sys.exit("Unsupported fixture operation: "+repr(args))
             "git status",
         ]:
             self.assertFalse(self.denied(self.invoke("pre", command)), command)
+
+    def push_directory_fixture(self):
+        """Mock read-only Git metadata; push commands are never executed."""
+        checkout = self.root / "worktree with spaces"
+        checkout.mkdir()
+        self.env["GIT_FIXTURE_CWD"] = str(checkout)
+        self.env["GH_FIXTURE_CWD"] = str(checkout)
+        git = self.root / "bin/git"
+        git.write_text("""#!/usr/bin/python3 -I
+import os,sys
+args=sys.argv[1:]
+selected = os.getcwd() == os.environ["GIT_FIXTURE_CWD"]
+if args == ["remote", "get-url", "--push", "--all", "origin"]:
+ print("https://github.com/" + ("other/repo" if selected else "owner/repo") + ".git")
+elif args == ["config", "--get-all", "remote.origin.push"]:
+ mapping = os.environ.get("GIT_FIXTURE_MAPPING", "") if selected else "refs/heads/topic:refs/heads/main"
+ if mapping: print(mapping)
+ else: sys.exit(1)
+elif args == ["symbolic-ref", "--short", "HEAD"]:
+ print(os.environ.get("GIT_FIXTURE_HEAD", "topic") if selected else "main")
+else: sys.exit("Unsupported fixture operation: " + repr(args))
+""")
+        git.chmod(0o755)
+        return checkout
+
+    def test_user_push_directory_options_select_the_effective_worktree(self):
+        """Given literal -C forms / When pushing HEAD / Then remote, config and HEAD use that directory."""
+        checkout = self.push_directory_fixture()
+        (checkout / "child").mkdir()
+        (checkout / "push").symlink_to(checkout, target_is_directory=True)
+        (self.root / "link").symlink_to(checkout / "child", target_is_directory=True)
+        prefixes = [
+            f"git -C {shlex.quote(str(checkout))}",
+            f"git -C{shlex.quote(str(checkout))}",
+            f"git -C {shlex.quote(checkout.name)}",
+            f"git -C '' -C {shlex.quote(checkout.name)} -C ''",
+            f"git -C {shlex.quote(checkout.name)} -C child -C ..",
+            f"git -C {shlex.quote(checkout.name)} -C push",
+            f"git -C {shlex.quote(checkout.name)} -C{shlex.quote(str(checkout))}",
+            "git -C link/..",
+        ]
+        for prefix in prefixes:
+            with self.subTest(prefix=prefix):
+                self.assertEqual(self.invoke("pre", prefix + " push origin HEAD"), {})
+        self.assertEqual(
+            self.invoke("pre", "git -C '' push origin HEAD", cwd=str(checkout)), {}
+        )
+
+    def test_user_push_directory_preserves_target_protection_and_push_mapping(self):
+        """Given a selected worktree / When checking pushes / Then its metadata and existing policy apply."""
+        checkout = self.push_directory_fixture()
+        prefix = f"git -C {shlex.quote(str(checkout))} push"
+        for target in ("feature", "main", "prod", "custom-protected"):
+            for args in (
+                f"origin HEAD:refs/heads/{target}",
+                f"--force origin HEAD:refs/heads/{target}",
+                f"origin +HEAD:refs/heads/{target}",
+                f"--delete origin {target}",
+                f"origin :refs/heads/{target}",
+            ):
+                with self.subTest(args=args):
+                    result = self.invoke("pre", f"{prefix} {args}")
+                    self.assertTrue(self.denied(result), result)
+                    self.assertIn(
+                        f"受保护分支 {target}",
+                        result["hookSpecificOutput"]["permissionDecisionReason"],
+                    )
+        for args in (
+            "-u origin topic",
+            "--force origin topic",
+            "--force-with-lease origin topic",
+            "--delete origin topic",
+            "origin :refs/heads/topic",
+        ):
+            with self.subTest(args=args):
+                self.assertEqual(self.invoke("pre", f"{prefix} {args}"), {})
+        self.env["GIT_FIXTURE_HEAD"] = "prod"
+        self.assertTrue(self.denied(self.invoke("pre", prefix + " origin HEAD")))
+        self.env["GIT_FIXTURE_MAPPING"] = "refs/heads/topic:refs/heads/main"
+        result = self.invoke("pre", prefix + " origin topic")
+        self.assertIn(
+            "configured push mappings",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+        self.assertEqual(
+            self.invoke("pre", prefix + " origin HEAD:refs/heads/topic"), {}
+        )
+
+    def test_user_push_directory_rejects_unsupported_or_dynamic_context(self):
+        """Given unresolved directory context / When checked / Then the new prefix stays fail-closed."""
+        checkout = self.push_directory_fixture()
+        (self.root / "file").write_text("not a directory")
+        for prefix in (
+            "git -C",
+            "git -C missing -C ..",
+            "git -C file",
+            "git -C '$WORKTREE'",
+            "git -C '~'",
+            "git -C 'worktree*'",
+            "git -C 'worktree{a,b}'",
+            "git --unknown -C .",
+            "git -c key=value -C .",
+            "git -C . --git-dir .git",
+            "git -C . --work-tree .",
+        ):
+            with self.subTest(prefix=prefix):
+                self.assertTrue(
+                    self.denied(self.invoke("pre", prefix + " push origin topic"))
+                )
+        command = f"git -C {shlex.quote(str(checkout))} push origin topic"
+        for text in (
+            "cd elsewhere && " + command,
+            "pushd elsewhere; " + command,
+            "export NAME=value; " + command,
+            "true && " + command,
+            "env -C elsewhere " + command,
+            "NAME=value " + command,
+            command + " > output",
+            command.replace(shlex.quote(str(checkout)), '"$WORKTREE"'),
+        ):
+            with self.subTest(command=text):
+                self.assertTrue(self.denied(self.invoke("pre", text)))
 
     def test_user_configured_push_mapping_cannot_hide_protected_destination(self):
         """Given a source-only ref mapped to main / When pushed / Then require an explicit destination."""
