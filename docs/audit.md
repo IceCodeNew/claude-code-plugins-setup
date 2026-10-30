@@ -78,6 +78,9 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 | 技能 | 直接上游 | 位置 |
 |---|---|---|
 | `think`、`hunt`、`read`、`write`、`learn` | tw93/Waza | dev / librarian / oracle |
+| `check` | tw93/Waza | review |
+| `health` | tw93/Waza | dev |
+| `ui` | tw93/Waza | frontend |
 | `tdd` | mattpocock/skills | dev |
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
@@ -87,11 +90,11 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 | `gh-stack`、`reclaim-code-entropy`、`scoped-change`、`worktree-pr`、`ux-writing` | 各自上游 | dev / librarian |
 | `thermos*`、`test-audit`、`better-readme`、`searching-with-fff`、`ripwire*`、`code-review-page` | 各自上游 | review / dev / librarian |
 
-不再安装/删除的技能包括：`design`/`ui`、`diagram-design`、`drawio-skill`、
+不再安装/删除的技能包括：`design`（旧 vendored 名称）、`diagram-design`、`drawio-skill`、
 `improve-codebase-architecture`、`to-issues`、`to-prd`、`grill-with-docs`、`triage`、
 `fireworks-tech-graph`、`review-code`、`deslop-*`、
 `jupytext`、`jupyter-notebook`、`minimax-*`、`pptx-generator`、
-`bggg-creator-image2ppt`、`gpt-image-gen`、`pua`、`brainstorming-cn`、`health`、
+`bggg-creator-image2ppt`、`gpt-image-gen`、`pua`、`brainstorming-cn`、
 `better-goal`、`skill-creator`（独立技能）、`xurl`。
 
 删除理由：可被角色/命令替代、低频/依赖外部 key、或旧 vendored/坏布局；不再保留

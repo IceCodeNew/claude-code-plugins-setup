@@ -59,12 +59,12 @@ claude --bg \
 |---|---|---|---|
 | `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、hookify、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
 | `quick` | 极小问题、单文件小改、跑命令；代码定位交给 finder。 | easy | hookify；searching-with-fff；fff |
-| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、gh-cli、hookify、remember；9 技能；fff |
+| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、gh-cli、hookify、remember；10 技能；fff |
 | `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、gh-cli、hookify、remember；fast-rust、searching-with-fff；fff |
 | `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、gh-cli、hookify、remember；modular-go、searching-with-fff；fff |
 | `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、gh-cli、hookify、remember；friendly-python、piglet、searching-with-fff；fff |
-| `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、gh-cli、hookify、remember；searching-with-fff；fff |
-| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 21 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、gh-cli、hookify、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
+| `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、gh-cli、hookify、remember；searching-with-fff、ui；fff |
+| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 21 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、gh-cli、hookify、remember、13 个 Trail of Bits 审查插件（含 fp-check）；8 技能（含 code-review-page、check）；fff |
 | `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | easy | firecrawl、github、context7、hookify、remember；8 技能；fff |
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | hookify、remember；think、karpathy-guidelines、searching-with-fff；fff |
 | `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | hookify；searching-with-fff、ripwire*；fff |
@@ -114,7 +114,6 @@ claude --bg \
 | `/feature` | 替代 `feature-dev`：探索、计划、实现、测试。 |
 | `/review` | 合并原 `/review` 与 `/review-pr`：先跑 `test-audit`/`ripwire` 标准检查，再在代码稳定后跑 `/security-check`，最后用 `fp-check` 复核安全发现；`rust-review` 仅 Rust 可选；`thermos`/`thermo-nuclear-*` 不自动执行，必须用户单独触发；需要 HTML 页面时用 `code-review-page`。 |
 | `/security-check` | review 的安全检查快捷入口：信任边界、注入、authz、SSRF、secrets、供应链；`security-guidance` 仍在 dev 做前置审查。 |
-| `/ui` | 替代 stale 的 vendored `design` 技能（Waza 已改名为 `ui`）。 |
 
 命令是全局安装的：不同配置共享同一组快捷命令；配置差异体现在插件、技能、MCP、
 hooks 和 SYSTEM prompt，而不是再把命令复制多份。新增/修改命令改

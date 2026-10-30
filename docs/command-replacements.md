@@ -31,9 +31,9 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 | `hookify` | 231 行创建命令 + Python 规则引擎 + 4 个 hooks | 无（插件启用） | — | 所有角色启用原插件，不提供替代命令 | **所有角色启用** |
 | `skill-creator` | 技能创建流程/评估 | 无（插件保留禁用） | — | 保留原插件和禁用状态，不提供替代命令 | **保留安装但禁用** |
 | `security-guidance` | 11,756 行 Python hooks + tests；PostToolUse/Stop 审查 | 无 | — | 模式匹配、diff 状态、LLM 审查、误报处理无法用命令复制 | **保留在 dev** |
-| `modern-go-guidelines` | Go 版本特性/规范资料 + 检查规则 | `/go` 快捷入口 | 入口保留 | 新版本特性清单是领域资料，模型不会稳定记住 | **保留在 go/review** |
-| `modern-python` | Python 规范/工具链 + PATH shims | `/python` 快捷入口 | 入口保留 | 版本化规范与 shim 是插件资产 | **保留在 python/review** |
-| `pydantic` | Pydantic v2 版本化资料 | `/pydantic` 快捷入口 | 入口保留 | 版本差异和迁移细节是领域资料 | **保留在 python/review** |
+| `modern-go-guidelines` | Go 版本特性/规范资料 + 检查规则 | 无（插件保留） | — | 版本化资料保留在 go | **保留在 go** |
+| `modern-python` | Python 规范/工具链 + PATH shims | 无（插件保留） | — | 版本化规范与 shim 是插件资产 | **保留在 python** |
+| `pydantic` | Pydantic v2 版本化资料 | 无（插件保留） | — | 版本差异和迁移细节是领域资料 | **保留在 python** |
 | `superpowers` | 大量技能/方法论，持续维护 | `/feature`、router 编排 | 只用其中一部分 | 技能库和专用流程不是命令能完整复制的 | **保留在 dev** |
 | `remember` | SessionStart/End hooks、Haiku 压缩、`/remember` handoff | ccr ledger | 跨会话记忆由 remember 承担 | remember 是异步压缩的全局历史，不是当前任务可同步更新的 must-retain 包 | **保留；与 ledger 分工** |
 | `claude-session-driver` | `csd` CLI、tmux、事件流、handoff | `ccr spawn --bg` | 后台自动化由 ccr 承担 | tmux attach/handoff 是插件独有能力 | **保留在 router** |
@@ -43,7 +43,7 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 ## 结论
 
 - **命令只提供角色入口/输出契约**：`/plan`、`/research`、`/feature`、`/review`、
-  `/security-check`、`/ui`。纯 prompt 插件（simplifier、commit、claude-code-setup、
+  `/security-check`。纯 prompt 插件（simplifier、commit、claude-code-setup、
   claude-md-management、hookify、skill-creator）保留原插件，不提供替代命令。
 - **插件保留**的是“有运行时/领域资料/独立工具”的插件：security-guidance、
   modern-go/python、pydantic、superpowers、remember、session-driver、

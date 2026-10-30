@@ -278,7 +278,7 @@ done
 `enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
-例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui`。命令正文是流程和验证要求；它们是模型可调用的角色命令（例如 librarian 用
+例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`。命令正文是流程和验证要求；它们是模型可调用的角色命令（例如 librarian 用
 `/research`，oracle 用 `/plan`，review 用 `/review` 和 `/security-check`），
 也可以由用户直接输入。router 不再使用 `--disable-slash-commands`，因为它也要用
 session-driver/remember/nmem 的技能；实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
@@ -319,7 +319,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 
 | 保留技能 | 上游 | 位置 |
 |---|---|---|
-| `think`、`hunt`、`read`、`write`、`learn` | tw93/Waza | dev / librarian / oracle |
+| `check`、`health`、`hunt`、`learn`、`read`、`think`、`ui`、`write` | tw93/Waza | 完整安装；`ui` 在 frontend，`check` 在 review，`health` 在 dev，其余在 dev/librarian/oracle |
 | `tdd` | mattpocock/skills | dev |
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
@@ -611,7 +611,7 @@ ccr
 ```
 
 进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/plan`、
-`/research`、`/feature`、`/review`、`/security-check`、`/ui`。
+`/research`、`/feature`、`/review`、`/security-check`。
 路由保留命令可见，但 prompt 要求实现类命令分发给对应配置，只有只读的 `/plan`、
 `/research` 可按用户明确要求原地执行。命令清单见
 [配置与命令](docs/profiles.md#命令把内化能力做成一次点击)。
