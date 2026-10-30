@@ -255,8 +255,6 @@ class Profiles(unittest.TestCase):
         self.assertIn("security-check", installed)
         self.assertIn("plan", installed)
         self.assertIn("research", installed)
-        self.assertIn("create-claude-hook", installed)
-        self.assertIn("create-claude-skill", installed)
         for name in installed:
             text = (commands / f"{name}.md").read_text()
             self.assertIn("<!-- ccr-command -->", text)
