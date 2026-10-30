@@ -12,7 +12,7 @@
   它每次结束都会发一次模型请求，检查 fp-check 的验证流程是否完整；即使当前
   对话与安全审查无关，也会先花一次调用。[插件源码](https://github.com/trailofbits/skills/tree/main/plugins/fp-check)
 - `security-guidance`、`modern-python`、`gh-cli` 等也会注入 hooks 或 PATH shim。
-- 保留的 42 个插件的技能描述、MCP 工具、agent 描述都会进入对应角色的上下文。
+- 保留的 45 个插件的技能描述、MCP 工具、agent 描述都会进入对应角色的上下文。
 
 把这些东西按领域隔离后，路由会话只保留编排所需的最小上下文；专业会话只在被
 路由到时才付出对应成本。
@@ -64,8 +64,8 @@ claude --bg \
 | `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；modular-go、searching-with-fff；fff |
 | `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、piglet、searching-with-fff；fff |
 | `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、remember；searching-with-fff；fff |
-| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；8 技能（含 code-review-page）；fff |
-| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；7 技能；fff |
+| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
+| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；8 技能；fff |
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
 
 `dev`/`review`/`librarian` 的具体技能列表以 `profiles.json` 为准，这里不重复枚举，
@@ -78,19 +78,22 @@ claude --bg \
 
 完整清单以 [`build/profiles/profiles.json`](../build/profiles/profiles.json) 为准；
 [`claude-plugins.tsv`](../claude-plugins.tsv) 的最后一列是每个插件的归属。
-删除的插件/技能不保留禁用状态：镜像不再安装，`profiles.json` 不再记录，
-`claude-plugins.tsv` 也不再列。当前删除项：
+删除的插件/技能直接移除；`hookify`、`skill-creator`、`redis-development` 保留安装和
+原本的禁用状态，`japanese-tech-writing` 保留在 librarian：
 
-- 插件：`feature-dev`、`code-review`、`pr-review-toolkit`（明确支持）；`hookify`、
-  `skill-creator`（保留命令创建流程）；`ralph-loop`、`double-shot-latte`（Stop hook
-  成本大于收益）；`redis-development`（低频）。
-- 技能：`design`/`ui`、`diagram-design`、`review-code`、`deslop-*`、`minimax-*`、
-  `jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、`to-issues`、`to-prd`、
-  `grill-with-docs`、`triage`、`fireworks-tech-graph`、`japanese-tech-writing`、
-  `drawio-skill` 等；逐项理由见[配置审计](audit.md)。
+- 删除插件：`feature-dev`、`code-review`、`pr-review-toolkit`；`ralph-loop`、
+  `double-shot-latte`（Stop hook 成本大于收益）。
+- 保留安装但禁用：`hookify`、`skill-creator`、`redis-development`（`unassignedPlugins`，
+  任何配置都不启用）。
+- 删除技能：`design`/`ui`、`diagram-design`、`drawio-skill`、`review-code`、`deslop-*`、
+  `minimax-*`、`jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、`to-issues`、
+  `to-prd`、`grill-with-docs`、`triage`、`fireworks-tech-graph` 等；逐项理由见
+  [配置审计](audit.md)。
+- 保留技能：`japanese-tech-writing` 在 librarian。
 
 纯 prompt 插件（`code-simplifier`、`commit-commands`、`claude-code-setup`）继续以插件
-形式安装在 dev：它们能自动更新，转换成命令没有 ROI。
+形式安装在 dev：它们能自动更新，转换成命令没有 ROI。`reclaim-code-entropy` 与
+`code-simplifier` 在 dev 的同一稳定阶段执行；review 不负责简化。
 
 ## 命令：把内化能力做成一次点击
 
@@ -105,8 +108,7 @@ claude --bg \
 | `/plan` | 交给 `oracle`：决策、选项、验收标准、风险，不写实现。 |
 | `/research` | 交给 `librarian`：跨仓库/依赖/文档搜索，带引用。 |
 | `/feature` | 替代 `feature-dev`：探索、计划、实现、测试。 |
-| `/review` | 合并原 `/review` 与 `/review-pr`：强制执行 `/security-check`、标准 review 检查和 `/simplify`；`rust-review` 仅 Rust 可选；`thermos`/`thermo-nuclear-*` 不自动执行，必须用户单独触发；需要 HTML 页面时用 `code-review-page`。 |
-| `/simplify` | 强制 review 阶段：最小 diff 简化，不改行为，最后重跑测试并复核 diff。 |
+| `/review` | 合并原 `/review` 与 `/review-pr`：先跑 `test-audit`/`ripwire` 标准检查，再在代码稳定后跑 `/security-check`，最后用 `fp-check` 复核安全发现；`rust-review` 仅 Rust 可选；`thermos`/`thermo-nuclear-*` 不自动执行，必须用户单独触发；需要 HTML 页面时用 `code-review-page`。 |
 | `/security-check` | review 的安全检查快捷入口：信任边界、注入、authz、SSRF、secrets、供应链；`security-guidance` 仍在 dev 做前置审查。 |
 | `/claude-md` | `claude-md-management` 的快捷入口；插件保留其质量标准和模板。 |
 | `/create-claude-hook` | 替代 `hookify` 的创建流程；强制优先确定性 hook。 |
@@ -222,7 +224,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 `ccr doctor` 会做这些检查：
 
-- 所有已安装插件都已归类；没有“安装但禁用”的中间状态。
+- 所有安装插件都有归属；`hookify`、`skill-creator`、`redis-development` 保留原本的禁用状态。
 - 每个配置的插件都已安装，且 `--settings` 真的能启用它们（通过
   `claude --setting-sources "" --settings ... plugin list --json` 预检，不调用模型）。
 - `fp-check` 只在 `review`；router 启用 nmem、remember、ops 和 session-driver，但没有任何实现插件；fff 在所有角色启用。
@@ -274,7 +276,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 1. 安装新的 `ccr` 和 profile 源（镜像已包含；手动安装见
    [安装手册](../claude-plugins-setup.md#48-路由配置与-ccr)）。
 2. 运行 `ccr refresh --strict`。如果报告“installed plugin not classified”，把新插件
-   加进某个配置；不再保留“安装但全局禁用”的插件。
+   加进某个配置，或按原状态放进 `unassignedPlugins`。
 3. 移除旧的 user-scope fff 注册（现在由所有角色的 `--mcp-config` 提供）：
 
    ```bash

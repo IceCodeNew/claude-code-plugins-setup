@@ -215,9 +215,9 @@ claude plugin marketplace update
 ```bash
 for p in \
   claude-code-setup claude-md-management claude-security cloudflare code-simplifier \
-  coderabbit commit-commands context7 firecrawl github gopls-lsp linear \
-  modern-web-guidance pyright-lsp remember rust-analyzer-lsp security-guidance \
-  session-report superpowers telegram typescript-lsp
+  coderabbit commit-commands context7 firecrawl github gopls-lsp hookify linear \
+  modern-web-guidance pyright-lsp redis-development remember rust-analyzer-lsp \
+  security-guidance session-report skill-creator superpowers telegram typescript-lsp
 do
   claude plugin install "$p@claude-plugins-official" --scope user
 done
@@ -259,7 +259,9 @@ curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；
 `modern-web-guidance` 只由 frontend 配置启用；为 plain `claude` 保持禁用：
 
 ```bash
-claude plugin disable modern-web-guidance@claude-plugins-official --scope user
+for p in redis-development modern-web-guidance; do
+  claude plugin disable "$p@claude-plugins-official" --scope user
+done
 ```
 
 ### 3.1 插件归属
@@ -267,16 +269,16 @@ claude plugin disable modern-web-guidance@claude-plugins-official --scope user
 插件仍然只安装一次（user scope），但不再默认全部启用。每个插件在
 [profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
-其他插件并启用自己的插件。42 个保留插件都有归属；删除项已不在镜像和清单里。
+其他插件并启用自己的插件。45 个插件都有归属：42 个按角色启用，`hookify`、`skill-creator`、`redis-development` 保留原禁用状态。
 
 哪些插件仍保留、哪些插件删除了、哪些技能不再安装，以及各自的最后维护日期和
 卸载命令，见[配置审计](docs/audit.md)和[命令替代证据](docs/command-replacements.md)。
 
-环境安装 42 个保留插件。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
+环境安装 45 个插件（42 启用、3 禁用）。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
 `enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
-例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/simplify`、
+例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、
 `/create-claude-hook`。命令正文是流程和验证要求，设置
 `disable-model-invocation: true`，不会进入模型上下文。router 不再使用
 `--disable-slash-commands`，因为它也要用 session-driver/remember/nmem 的技能；
@@ -322,6 +324,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 | `tdd` | mattpocock/skills | dev |
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
+| `japanese-tech-writing` | 上游 gist | librarian |
 | `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / python / python；review 不重复 |
 | `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
@@ -367,7 +370,8 @@ for s in \
   cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
   ninehills/skills/tech-doc-style-chinese \
   openclaw/openclaw/.agents/skills/test-audit \
-  tommy0103/better-readme-skill/skills/better-readme
+  tommy0103/better-readme-skill/skills/better-readme \
+  https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
 do
   openskills install "$s" -g -y
 done
@@ -608,7 +612,7 @@ ccr
 ```
 
 进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/plan`、
-`/research`、`/feature`、`/review`、`/security-check`、`/simplify`、
+`/research`、`/feature`、`/review`、`/security-check`、
 `/create-claude-hook`。
 路由保留命令可见，但 prompt 要求实现类命令分发给对应配置，只有只读的 `/plan`、
 `/research` 可按用户明确要求原地执行。命令清单见

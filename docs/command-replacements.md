@@ -21,15 +21,15 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 
 | 插件 | 插件实际内容 | 替代 | 覆盖 | 丢失/边界 | 结论 |
 |---|---|---|---|---|---|
-| `code-simplifier` | 52 行 agent prompt，`model: opus`，无脚本/hooks | 插件保留；`/simplify` 是 review 阶段 | 覆盖 review 时的最小 diff 简化 | 插件能自动更新并在编辑后触发；命令不是替代，只是 review 的强制阶段 | **保留在 dev**，命令作为 review 步骤 |
+| `code-simplifier` | 52 行 agent prompt，`model: opus`，无脚本/hooks | 无（插件保留） | — | 插件能自动更新并在编辑后触发；命令没有 ROI | **保留在 dev**，与 `reclaim-code-entropy` 同阶段 |
 | `commit-commands` | 3 个命令：`commit`、`commit-push-pr`、`clean_gone`；全部是 git/gh 指令 | 无（插件保留） | — | 插件能自动更新；命令重复维护 | **保留在 dev**，不转命令 |
 | `feature-dev` | 125 行命令 + 3 个 agent（explorer/architect/reviewer） | router 多子会话 + `/feature` | 探索、计划、实现、评审的拆分；router 限制 3 个并行子会话 | 插件在一个会话内用专用 agent；router 用后台会话，协调成本更高 | 移除插件，编排上移到 router |
 | `code-review` | 110 行命令，多 agent 审查 + 置信度评分 | `/review` + `review` 配置的 thermos/Trail of Bits | 发现分级、证据、置信度；`fp-check` 负责误报复核 | 命令不重新实现评分引擎，依赖 review 配置的专用技能 | 移除插件；不是命令独力替代 |
 | `pr-review-toolkit` | 189 行命令 + 6 个专用 agent（测试、类型、注释、静默失败等） | `/review` + thermos/Trail of Bits | 测试覆盖、类型设计、错误处理、注释等审查视角 | 6 个 agent 的并行分工被合并；若需要同等并行度，保留插件更稳 | 移除；如追求完全等价应恢复插件 |
 | `claude-md-management` | 179 行 skill + 3 个 references + 命令 | `/claude-md` 快捷入口 | 入口保留 | 质量标准、模板、更新规则在插件 references 里，命令正文没有复制 | **保留插件**，命令只做快捷入口 |
 | `claude-code-setup` | 配置推荐命令/技能 | 无（插件保留） | — | 纯 prompt 插件能自动更新；命令没有 ROI | **保留在 dev** |
-| `hookify` | 231 行创建命令 + Python 规则引擎 + 4 个 hooks | `/create-claude-hook` | 创建确定性 hook、优先脚本而非 prompt hook | 插件自带的规则 DSL/运行时没有替代 | 移除；我们只需要创建 hook |
-| `skill-creator` | 技能创建流程/评估 | `/create-claude-skill` | SKILL.md 结构、触发描述、验证 | 插件的评估工具链未复制 | 移除；命令覆盖创建 |
+| `hookify` | 231 行创建命令 + Python 规则引擎 + 4 个 hooks | `/create-claude-hook` | 创建确定性 hook、优先脚本而非 prompt hook | 插件自带的规则 DSL/运行时没有替代 | **保留安装但禁用**；命令覆盖创建 |
+| `skill-creator` | 技能创建流程/评估 | `/create-claude-skill` | SKILL.md 结构、触发描述、验证 | 插件的评估工具链未复制 | **保留安装但禁用**；命令覆盖创建 |
 | `security-guidance` | 11,756 行 Python hooks + tests；PostToolUse/Stop 审查 | 无 | — | 模式匹配、diff 状态、LLM 审查、误报处理无法用命令复制 | **保留在 dev** |
 | `modern-go-guidelines` | Go 版本特性/规范资料 + 检查规则 | `/go` 快捷入口 | 入口保留 | 新版本特性清单是领域资料，模型不会稳定记住 | **保留在 go/review** |
 | `modern-python` | Python 规范/工具链 + PATH shims | `/python` 快捷入口 | 入口保留 | 版本化规范与 shim 是插件资产 | **保留在 python/review** |
@@ -52,8 +52,9 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
   `review` 配置已经有 thermos/Trail of Bits 的专用审查技能；如果要求与
   6 个 agent 完全等价的并行度，应恢复 `pr-review-toolkit`。
 - `/review` 不自动执行 `thermos`/`thermo-nuclear-*`：它们必须由用户单独触发，
-  成本高。`/review` 强制执行 `/security-check`、标准 review 检查、`fp-check`
-  （有安全发现时）和 `/simplify`；`rust-review` 只在 Rust 改动时可选执行。
+  成本高。`/review` 先跑 `test-audit`/`ripwire`，再在代码稳定后跑 `/security-check`，
+  最后用 `fp-check` 复核安全发现；不做简化。`rust-review` 只在 Rust 改动时可选。
+  `code-simplifier` + `reclaim-code-entropy` 在 dev 的同一阶段执行，位于 review 之前。
 - `remember` 与 `ccr` ledger **不是同一层**：remember 在会话边界做压缩历史，
   ledger 是 router 在任务进行中同步维护、随消息发送的 must-retain 包。保留
   ledger 不是重造 remember；如果只用 remember，恢复会话时拿不到“这次任务
