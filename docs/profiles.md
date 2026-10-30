@@ -67,7 +67,7 @@ claude --bg \
 | `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
 | `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | easy | firecrawl、github、context7、remember；8 技能；fff |
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
-| `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | 0 插件；searching-with-fff；fff |
+| `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | 0 插件；searching-with-fff、ripwire*；fff |
 
 具体技能列表以 `profiles.json` 为准，这里不重复枚举，避免文档和清单漂移。
 `finder`/`librarian` 的分工参考 Amp 的
@@ -101,9 +101,10 @@ claude --bg \
 
 命令只用于角色分发和固定输出契约；纯 prompt 插件如果自动更新有价值，仍保留插件。
 这些命令放在 `~/.claude/commands/`，正文是精简的流程和验证要求，用户输入 `/name` 即可调用。
-它们都设置 `disable-model-invocation: true`，所以不会进入模型的技能列表；路由
-不再使用 `--disable-slash-commands`，因为 router 自己也要用 session-driver、remember
-和 nmem 的技能。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
+这些是角色命令，模型在对应角色里可以调用（librarian 用 `/research`，oracle 用
+`/plan`，review 用 `/review` 和 `/security-check`），用户也可以直接输入。路由不再使用
+`--disable-slash-commands`，因为 router 自己也要用 session-driver、remember 和 nmem
+的技能。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
 
 | 命令 | 替代/用途 |
 |---|---|

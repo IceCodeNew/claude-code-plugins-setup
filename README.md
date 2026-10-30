@@ -43,7 +43,7 @@ ccr summary         # 汇总各子会话进度
 | 功能 | 默认行为与说明 |
 |---|---|
 | 路由配置 | `ccr` 是唯一用户入口；意图判断、后台子会话分发、上下文 ledger、进度汇总，以及 nmem/ops 集成；[配置与命令](docs/profiles.md) |
-| 快捷命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui` 等 6 个用户命令；`disable-model-invocation` 不占模型上下文；[命令表](docs/profiles.md#命令把内化能力做成一次点击) |
+| 快捷命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui` 等 6 个角色命令；模型和用户都可调用；[命令表](docs/profiles.md#命令把内化能力做成一次点击) |
 | 审查页面 | `review` 角色启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，可生成块级 HTML 评审页、diff 注释、复杂度热点和英文实现提示；[说明](docs/profiles.md#命令把内化能力做成一次点击) |
 | 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能按配置用 `skillOverrides` 隐藏，不再全部出现在每个会话；前端角色默认使用 [oxc](https://oxc.rs/) 的 `oxlint`/`oxfmt` |
 | Claude 插件 | 只安装一次到 user scope，由各配置的 `enabledPlugins` 启用；[清单](claude-plugins.tsv)最后一列是归属 |

@@ -278,10 +278,10 @@ done
 `enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
-例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui`。命令正文是流程和验证要求，设置
-`disable-model-invocation: true`，不会进入模型上下文。router 不再使用
-`--disable-slash-commands`，因为它也要用 session-driver/remember/nmem 的技能；
-实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
+例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui`。命令正文是流程和验证要求；它们是模型可调用的角色命令（例如 librarian 用
+`/research`，oracle 用 `/plan`，review 用 `/review` 和 `/security-check`），
+也可以由用户直接输入。router 不再使用 `--disable-slash-commands`，因为它也要用
+session-driver/remember/nmem 的技能；实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
 [build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
 同名但非 ccr 生成的文件会跳过并告警，不会覆盖你自己的命令。
 
@@ -746,7 +746,7 @@ attach 后检查：
 /mcp                  # dev 配置应看到 fff connected
 /hooks                # block-rm、protected-branches、require-tmux、post-edit-check
 /skills               # 只应出现 dev 配置的技能
-/feature              # 命令应可被用户直接调用（模型不会自动调用）
+/feature              # 命令可被模型或用户直接调用
 ```
 
 ### 仓库验收
