@@ -9,7 +9,7 @@ child sessions with `claude --bg`, one profile at a time, using:
   --append-system-prompt-file     append the profile's system prompt
   --mcp-config <file>             add this profile's standalone MCP (fff)
                                   (plugin MCPs still load)
-  --model <tier model>            hard or easy model
+  --model <tier model>            router, easy, medium, or hard model
 
 Profiles are generated from build/profiles/profiles.json. The manifest is the
 single source of truth for plugin, skill, MCP, keyword, and prompt assignments.
@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 VERSION = "1.0.0"
-DEFAULT_MODELS = {"router": "haiku", "hard": "opus", "easy": "haiku"}
+DEFAULT_MODELS = {"router": "haiku", "hard": "opus", "medium": "sonnet", "easy": "haiku"}
 CHILD_CONTRACT = "_child-contract.md"
 ROUTER_MARKER = "<!-- CCR_PROFILE_INDEX -->"
 SAFETY_ROLES = {
@@ -665,12 +665,13 @@ def profile_index_markdown(manifest: dict) -> str:
         "",
         "Model defaults live in `profiles.json`: "
         + ", ".join(f"{k}={v}" for k, v in manifest["models"].items())
-        + ". Override with `CCR_ROUTER_MODEL`, `CCR_HARD_MODEL`, `CCR_EASY_MODEL`.",
+        + ". Override with `CCR_ROUTER_MODEL`, `CCR_HARD_MODEL`, "
+        + "`CCR_MEDIUM_MODEL`, `CCR_EASY_MODEL`.",
         "",
         (
-            "`quick` is the only profile intended for easy tasks by default. A small "
-            "Rust edit is `rust` + `--tier easy`. A large review is "
-            "`review` + `--tier hard`."
+            "Default tiers: `quick`/`librarian` easy, `finder` medium, implementation "
+            "and review profiles hard. A small Rust edit is `rust` + `--tier easy`; "
+            "a local code search is `finder` + `--tier medium`."
         ),
         "",
     ]
@@ -1213,8 +1214,8 @@ def cmd_spawn(args) -> int:
         raise CcrError("Prompt is over 100 KiB; put the detail in the workspace")
 
     tier = args.tier or profile.get("tier", "hard")
-    if tier not in {"hard", "easy"}:
-        raise CcrError("--tier must be hard or easy")
+    if tier not in {"hard", "medium", "easy"}:
+        raise CcrError("--tier must be hard, medium, or easy")
     model = model_for(manifest, tier, args.model)
     settings_file = state / "profiles" / name / "settings.json"
     prompt_file = state / "profiles" / name / "prompt.md"
@@ -1751,7 +1752,7 @@ def cmd_doctor(args) -> int:
             "Remove it with: claude mcp remove --scope user fff"
         )
 
-    for tier in ("router", "hard", "easy"):
+    for tier in ("router", "hard", "medium", "easy"):
         env_name = manifest.get("modelEnv", {}).get(tier)
         value = os.environ.get(env_name) if env_name else None
         checks.append(
@@ -1841,7 +1842,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("spawn", help="dispatch a background child session")
     p.add_argument("--profile", required=True)
-    p.add_argument("--tier", choices=["hard", "easy"])
+    p.add_argument("--tier", choices=["hard", "medium", "easy"])
     p.add_argument("--name", default="task")
     p.add_argument("--cwd")
     p.add_argument("--model")

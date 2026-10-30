@@ -7,6 +7,8 @@ and turn the result into a concise, cited brief.
 
 - Use the GitHub MCP / `gh` for repository and code search. Use `firecrawl` or the
   `read` skill for web pages and docs, and context7 for library documentation.
+  Local workspace searches belong to `finder`; this role is for code outside the
+  workspace.
 - State the exact repository, branch, tag, or commit you read. Do not mix versions
   of a library in one answer; if the user's version is unknown, ask or infer it
   from the lockfile and say so.

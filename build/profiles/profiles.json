@@ -4,11 +4,13 @@
   "models": {
     "router": "haiku",
     "hard": "opus",
+    "medium": "sonnet",
     "easy": "haiku"
   },
   "modelEnv": {
     "router": "CCR_ROUTER_MODEL",
     "hard": "CCR_HARD_MODEL",
+    "medium": "CCR_MEDIUM_MODEL",
     "easy": "CCR_EASY_MODEL"
   },
   "router": {
@@ -234,7 +236,7 @@
     "librarian": {
       "description": "Librarian: read-only remote-code and docs research across GitHub, dependencies, and the web; writing/diagrams when asked.",
       "prompt": "prompts/librarian.md",
-      "tier": "hard",
+      "tier": "easy",
       "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
@@ -457,6 +459,53 @@
         "oxfmt",
         "eslint",
         "prettier"
+      ]
+    },
+    "finder": {
+      "description": "Finder: fast read-only local codebase search; return files and line ranges, not essays.",
+      "prompt": "prompts/finder.md",
+      "tier": "medium",
+      "permissionMode": "plan",
+      "effort": "low",
+      "plugins": [],
+      "skills": [
+        "searching-with-fff"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "permissions": {
+        "deny": [
+          "Edit",
+          "Write",
+          "NotebookEdit"
+        ]
+      },
+      "keywords": [
+        "find",
+        "where is",
+        "where are",
+        "locate",
+        "search",
+        "grep",
+        "call sites",
+        "callers",
+        "usages",
+        "references",
+        "definition",
+        "defined",
+        "which module",
+        "all occurrences",
+        "find all",
+        "查找",
+        "在哪儿",
+        "哪里",
+        "调用点",
+        "引用",
+        "定义",
+        "搜索",
+        "定位",
+        "所有出现"
       ]
     }
   },

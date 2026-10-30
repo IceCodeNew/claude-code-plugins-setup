@@ -47,6 +47,30 @@ HARD_SIGNALS = (
     "实现",
     "功能",
 )
+MEDIUM_SIGNALS = (
+    "find all",
+    "find every",
+    "all occurrences",
+    "call sites",
+    "callers",
+    "usages",
+    "references",
+    "where is",
+    "where are",
+    "which module",
+    "locate",
+    "search for",
+    "grep",
+    "查找",
+    "在哪儿",
+    "在哪里",
+    "调用点",
+    "引用",
+    "定义",
+    "搜索",
+    "定位",
+    "所有出现",
+)
 EASY_SIGNALS = (
     "quick question",
     "small edit",
@@ -54,8 +78,6 @@ EASY_SIGNALS = (
     "single file",
     "typo",
     "rename",
-    "lookup",
-    "where is",
     "what is",
     "how do i",
     "run the command",
@@ -64,7 +86,6 @@ EASY_SIGNALS = (
     "单文件",
     "改个名",
     "查一下",
-    "在哪里",
     "是什么",
     "怎么用",
     "跑一下",
@@ -98,14 +119,15 @@ def hint(prompt: str, index: dict) -> str | None:
     candidates = scored[:3]
 
     hard_hits = [signal for signal in HARD_SIGNALS if keyword_present(prompt, signal)]
+    medium_hits = [signal for signal in MEDIUM_SIGNALS if keyword_present(prompt, signal)]
     easy_hits = [signal for signal in EASY_SIGNALS if keyword_present(prompt, signal)]
-    if len(hard_hits) > len(easy_hits) or (hard_hits and not easy_hits):
+    if hard_hits:
+        # A code-change verb outranks a question or lookup signal.
         tier = ("hard", hard_hits)
-    elif easy_hits and not hard_hits:
+    elif medium_hits:
+        tier = ("medium", medium_hits)
+    elif easy_hits:
         tier = ("easy", easy_hits)
-    elif hard_hits and easy_hits:
-        # A code-change verb outranks a question word when both appear.
-        tier = ("hard", hard_hits)
     else:
         tier = (None, [])
 
