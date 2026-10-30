@@ -74,6 +74,8 @@ elif "--version" in args:
     print("2.1.312 (Claude Code)")
 elif "mcp" in args:
     sys.exit(1)
+elif "--agent" in args:
+    print(" ".join(args))
 elif "--disable-slash-commands" in args:
     print(" ".join(args))
 elif "--bg" in args or "--resume" in args:
@@ -156,7 +158,14 @@ class Profiles(unittest.TestCase):
         )
         self.assertFalse(router["enabledPlugins"].get("fp-check@trailofbits", False))
 
-    def test_router_has_expected_plugins_and_no_skills(self):
+    def test_fff_is_enabled_for_every_role(self):
+        for name in self.manifest["profiles"]:
+            mcp = json.loads((self.state / f"profiles/{name}/mcp.json").read_text())
+            self.assertIn("fff", mcp["mcpServers"], name)
+        router_mcp = json.loads((self.state / "runtime/router-mcp.json").read_text())
+        self.assertIn("fff", router_mcp["mcpServers"])
+
+    def test_router_has_expected_plugins_and_skills(self):
         router = json.loads(
             (self.state / "runtime/router-settings.json").read_text()
         )
@@ -167,12 +176,15 @@ class Profiles(unittest.TestCase):
             if value
         }
         self.assertEqual(enabled, expected)
-        self.assertFalse(any(value == "on" for value in router["skillOverrides"].values()))
         self.assertEqual(
-            router["deniedMcpServers"], [{"serverName": "fff"}]
+            {skill for skill, value in router["skillOverrides"].items() if value == "on"},
+            set(self.manifest["router"].get("skills", [])),
         )
+        self.assertNotIn("deniedMcpServers", router)
         self.assertEqual(router["agent"], "ccr-router")
         self.assertEqual(set(router["hooks"]), {"UserPromptSubmit"})
+        router_mcp = json.loads((self.state / "runtime/router-mcp.json").read_text())
+        self.assertIn("fff", router_mcp["mcpServers"])
 
     def test_each_profile_enables_only_its_plugins(self):
         for name, profile in self.manifest["profiles"].items():
@@ -209,7 +221,10 @@ class Profiles(unittest.TestCase):
             (self.state / "runtime/router-settings.json").read_text()
         )
         self.assertEqual(set(router["skillOverrides"]), all_skills)
-        self.assertFalse(any(value == "on" for value in router["skillOverrides"].values()))
+        self.assertEqual(
+            {skill for skill, value in router["skillOverrides"].items() if value == "on"},
+            set(self.manifest["router"].get("skills", [])),
+        )
 
     def test_safety_hooks_exist_in_children_and_not_router(self):
         for name in self.manifest["profiles"]:
@@ -241,6 +256,8 @@ class Profiles(unittest.TestCase):
         self.assertIn("security-check", installed)
         self.assertIn("plan", installed)
         self.assertIn("research", installed)
+        self.assertIn("create-claude-hook", installed)
+        self.assertIn("create-claude-skill", installed)
         for name in installed:
             text = (commands / f"{name}.md").read_text()
             self.assertIn("<!-- ccr-command -->", text)
@@ -253,9 +270,13 @@ class Profiles(unittest.TestCase):
                 "code-simplifier@claude-plugins-official",
                 "commit-commands@claude-plugins-official",
                 "feature-dev@claude-plugins-official",
-                "pydantic@pydantic-skills",
-                "superpowers@claude-plugins-official",
-                "security-guidance@claude-plugins-official",
+                "code-review@claude-plugins-official",
+                "pr-review-toolkit@claude-plugins-official",
+                "hookify@claude-plugins-official",
+                "skill-creator@claude-plugins-official",
+                "claude-code-setup@claude-plugins-official",
+                "ralph-loop@claude-plugins-official",
+                "double-shot-latte@superpowers-marketplace",
             }
             <= unassigned
         )
@@ -263,6 +284,22 @@ class Profiles(unittest.TestCase):
             enabled = self.settings(name)["enabledPlugins"]
             for plugin in unassigned:
                 self.assertFalse(enabled.get(plugin, False), (name, plugin))
+
+    def test_frontend_and_language_roles_own_their_toolchain(self):
+        frontend = self.settings("frontend")["enabledPlugins"]
+        dev = self.settings("dev")["enabledPlugins"]
+        self.assertTrue(frontend.get("modern-web-guidance@claude-plugins-official"))
+        self.assertTrue(frontend.get("typescript-lsp@claude-plugins-official"))
+        self.assertFalse(dev.get("typescript-lsp@claude-plugins-official"))
+        prompt = (self.state / "profiles/frontend/prompt.md").read_text()
+        self.assertIn("oxlint", prompt)
+        self.assertIn("oxfmt", prompt)
+        self.assertTrue(self.settings("go")["enabledPlugins"].get("modern-go-guidelines@goland-claude-marketplace"))
+        self.assertTrue(self.settings("python")["enabledPlugins"].get("modern-python@trailofbits"))
+        self.assertIn(
+            "code-review-page",
+            {skill for skill, value in self.settings("review")["skillOverrides"].items() if value == "on"},
+        )
 
     def test_rust_security_review_belongs_to_review_profile(self):
         review = self.settings("review")["enabledPlugins"]
@@ -459,12 +496,13 @@ class Routing(unittest.TestCase):
         self.assertEqual(len(records), 1)
         return records[0].parent.name
 
-    def test_router_disables_slash_commands(self):
+    def test_router_uses_agent_profile_and_fff_mcp(self):
         result = self.ccr("router", "--resume")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("--disable-slash-commands", result.stdout)
+        self.assertNotIn("--disable-slash-commands", result.stdout)
         self.assertIn("--agent ccr-router", result.stdout)
         self.assertNotIn("--strict-mcp-config", result.stdout)
+        self.assertIn("--mcp-config", result.stdout)
         self.assertIn("--setting-sources", result.stdout)
 
     def test_orphan_plugin_fails_strict_refresh(self):
