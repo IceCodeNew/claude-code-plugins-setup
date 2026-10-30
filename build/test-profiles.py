@@ -292,6 +292,14 @@ class Profiles(unittest.TestCase):
         self.assertFalse((self.config / "commands/simplify.md").exists())
         self.assertFalse((self.config / "commands/commit.md").exists())
 
+    def test_finder_is_medium_and_librarian_is_easy(self):
+        self.assertEqual(self.manifest["profiles"]["finder"]["tier"], "medium")
+        self.assertEqual(self.manifest["profiles"]["librarian"]["tier"], "easy")
+        self.assertEqual(self.manifest["profiles"]["oracle"]["tier"], "hard")
+        finder = self.settings("finder")
+        self.assertTrue(finder.get("permissions", {}).get("deny"))
+        self.assertTrue((self.state / "profiles/finder/mcp.json").is_file())
+
     def test_frontend_and_language_roles_own_their_toolchain(self):
         frontend = self.settings("frontend")["enabledPlugins"]
         dev = self.settings("dev")["enabledPlugins"]
@@ -338,9 +346,21 @@ class Profiles(unittest.TestCase):
         text = json.loads(rust.stdout)["hookSpecificOutput"]["additionalContext"]
         self.assertIn("rust", text)
         self.assertIn("hard", text)
+        medium = subprocess.run(
+            [sys.executable, str(hook)],
+            input=json.dumps({"prompt": "find all call sites of this function"}),
+            env={**self.env, "CCR_PROFILE": "router"},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        text = json.loads(medium.stdout)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("finder", text)
+        self.assertIn("medium", text)
         easy = subprocess.run(
             [sys.executable, str(hook)],
-            input=json.dumps({"prompt": "查一下这个函数在哪里，改个名"}),
+            input=json.dumps({"prompt": "改个名，跑一下测试"}),
             env={**self.env, "CCR_PROFILE": "router"},
             capture_output=True,
             text=True,
@@ -448,6 +468,22 @@ class Routing(unittest.TestCase):
         self.assertIn("--permission-mode", argv)
         self.assertNotIn("--agent", argv)
         self.assertEqual(data["record"]["profile"], "rust")
+        medium = self.ccr(
+            "spawn",
+            "--profile",
+            "finder",
+            "--tier",
+            "medium",
+            "--name",
+            "find",
+            "--prompt",
+            "where is the parser",
+            "--dry-run",
+            "--json",
+        )
+        self.assertEqual(medium.returncode, 0, medium.stderr)
+        medium_argv = json.loads(medium.stdout)["argv"]
+        self.assertEqual(medium_argv[medium_argv.index("--model") + 1], "sonnet")
 
     def test_spawn_send_checkpoint_and_summary(self):
         spawned = self.ccr(
