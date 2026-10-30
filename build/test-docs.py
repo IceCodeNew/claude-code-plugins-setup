@@ -59,14 +59,25 @@ class UserDocumentation(unittest.TestCase):
         self.assertIn("trash-put", alias)
         self.assertIn("false", alias)
 
-    def test_user_double_shot_latte_patch_matches_the_image(self):
-        """Given manual or image setup / When double-shot-latte is patched / Then both use one edit."""
+    def test_deleted_plugins_are_not_installed(self):
+        """Given the image inventory / When a plugin is deleted / Then neither image nor docs re-add it."""
         dockerfile = (ROOT / "build/Dockerfile").read_text()
+        inventory = (ROOT / "claude-plugins.tsv").read_text()
         setup = (ROOT / "claude-plugins-setup.md").read_text()
-        commands = re.findall(r"^sed -i '[^']*BASH_SOURCE[^']*'", dockerfile, re.MULTILINE)
-        self.assertEqual(len(commands), 1)
-        self.assertIn(commands[0], setup)
-        self.assertIn("double-shot-latte/*/hooks/run-hook.cmd", setup)
+        deleted = (
+            "feature-dev",
+            "code-review",
+            "pr-review-toolkit",
+            "hookify",
+            "skill-creator",
+            "ralph-loop",
+            "double-shot-latte",
+            "redis-development",
+        )
+        for plugin in deleted:
+            self.assertNotIn(f"claude plugin install {plugin}", dockerfile)
+            self.assertNotIn(f"{plugin}@", inventory)
+            self.assertNotIn(f"claude plugin install {plugin}", setup)
 
 
 if __name__ == "__main__":

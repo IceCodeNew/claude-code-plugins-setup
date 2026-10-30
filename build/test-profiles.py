@@ -251,9 +251,9 @@ class Profiles(unittest.TestCase):
         commands = self.config / "commands"
         self.assertTrue(commands.is_dir())
         installed = {path.stem for path in commands.glob("*.md")}
-        self.assertIn("simplify", installed)
         self.assertIn("review", installed)
         self.assertIn("security-check", installed)
+        self.assertIn("simplify", installed)
         self.assertIn("plan", installed)
         self.assertIn("research", installed)
         self.assertIn("create-claude-hook", installed)
@@ -263,27 +263,34 @@ class Profiles(unittest.TestCase):
             self.assertIn("<!-- ccr-command -->", text)
             self.assertIn("disable-model-invocation: true", text)
 
-    def test_unassigned_plugins_are_disabled_everywhere(self):
-        unassigned = set(self.manifest["unassignedPlugins"])
-        self.assertTrue(
-            {
-                "code-simplifier@claude-plugins-official",
-                "commit-commands@claude-plugins-official",
-                "feature-dev@claude-plugins-official",
-                "code-review@claude-plugins-official",
-                "pr-review-toolkit@claude-plugins-official",
-                "hookify@claude-plugins-official",
-                "skill-creator@claude-plugins-official",
-                "claude-code-setup@claude-plugins-official",
-                "ralph-loop@claude-plugins-official",
-                "double-shot-latte@superpowers-marketplace",
-            }
-            <= unassigned
-        )
+    def test_offline_plugins_are_deleted_not_disabled(self):
+        removed = {
+            "feature-dev@claude-plugins-official",
+            "code-review@claude-plugins-official",
+            "pr-review-toolkit@claude-plugins-official",
+            "hookify@claude-plugins-official",
+            "skill-creator@claude-plugins-official",
+            "ralph-loop@claude-plugins-official",
+            "double-shot-latte@superpowers-marketplace",
+            "redis-development@claude-plugins-official",
+        }
+        self.assertEqual(self.manifest["unassignedPlugins"], {})
+        self.assertFalse(removed & set(self.plugins))
         for name in self.manifest["profiles"]:
             enabled = self.settings(name)["enabledPlugins"]
-            for plugin in unassigned:
+            for plugin in removed:
                 self.assertFalse(enabled.get(plugin, False), (name, plugin))
+
+    def test_pure_prompt_plugins_stay_plugins(self):
+        dev = self.settings("dev")["enabledPlugins"]
+        for plugin in (
+            "code-simplifier@claude-plugins-official",
+            "commit-commands@claude-plugins-official",
+            "claude-code-setup@claude-plugins-official",
+        ):
+            self.assertTrue(dev.get(plugin), plugin)
+        self.assertTrue((self.config / "commands/simplify.md").exists())
+        self.assertFalse((self.config / "commands/commit.md").exists())
 
     def test_frontend_and_language_roles_own_their_toolchain(self):
         frontend = self.settings("frontend")["enabledPlugins"]
