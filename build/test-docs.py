@@ -68,16 +68,15 @@ class UserDocumentation(unittest.TestCase):
             "feature-dev",
             "code-review",
             "pr-review-toolkit",
-            "hookify",
-            "skill-creator",
             "ralph-loop",
             "double-shot-latte",
-            "redis-development",
         )
         for plugin in deleted:
             self.assertNotIn(f"claude plugin install {plugin}", dockerfile)
             self.assertNotIn(f"{plugin}@", inventory)
             self.assertNotIn(f"claude plugin install {plugin}", setup)
+        for plugin in ("hookify", "skill-creator", "redis-development"):
+            self.assertIn(f"{plugin}@", inventory)
 
 
 if __name__ == "__main__":

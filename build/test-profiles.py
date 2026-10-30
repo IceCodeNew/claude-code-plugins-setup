@@ -253,7 +253,6 @@ class Profiles(unittest.TestCase):
         installed = {path.stem for path in commands.glob("*.md")}
         self.assertIn("review", installed)
         self.assertIn("security-check", installed)
-        self.assertIn("simplify", installed)
         self.assertIn("plan", installed)
         self.assertIn("research", installed)
         self.assertIn("create-claude-hook", installed)
@@ -263,22 +262,25 @@ class Profiles(unittest.TestCase):
             self.assertIn("<!-- ccr-command -->", text)
             self.assertIn("disable-model-invocation: true", text)
 
-    def test_offline_plugins_are_deleted_not_disabled(self):
-        removed = {
+    def test_offline_plugins_are_deleted_and_disabled_ones_are_kept(self):
+        deleted = {
             "feature-dev@claude-plugins-official",
             "code-review@claude-plugins-official",
             "pr-review-toolkit@claude-plugins-official",
-            "hookify@claude-plugins-official",
-            "skill-creator@claude-plugins-official",
             "ralph-loop@claude-plugins-official",
             "double-shot-latte@superpowers-marketplace",
+        }
+        disabled = {
+            "hookify@claude-plugins-official",
+            "skill-creator@claude-plugins-official",
             "redis-development@claude-plugins-official",
         }
-        self.assertEqual(self.manifest["unassignedPlugins"], {})
-        self.assertFalse(removed & set(self.plugins))
+        self.assertEqual(set(self.manifest["unassignedPlugins"]), disabled)
+        self.assertFalse(deleted & set(self.plugins))
+        self.assertTrue(disabled <= set(self.plugins))
         for name in self.manifest["profiles"]:
             enabled = self.settings(name)["enabledPlugins"]
-            for plugin in removed:
+            for plugin in deleted | disabled:
                 self.assertFalse(enabled.get(plugin, False), (name, plugin))
 
     def test_pure_prompt_plugins_stay_plugins(self):
@@ -289,7 +291,7 @@ class Profiles(unittest.TestCase):
             "claude-code-setup@claude-plugins-official",
         ):
             self.assertTrue(dev.get(plugin), plugin)
-        self.assertTrue((self.config / "commands/simplify.md").exists())
+        self.assertFalse((self.config / "commands/simplify.md").exists())
         self.assertFalse((self.config / "commands/commit.md").exists())
 
     def test_frontend_and_language_roles_own_their_toolchain(self):
