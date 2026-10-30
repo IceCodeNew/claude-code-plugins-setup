@@ -460,7 +460,6 @@ COPY --link --parents --from=agent-config \
     /./home/nonroot/.claude \
     /./home/nonroot/.claude.json \
     /./home/nonroot/.agents \
-    /./home/nonroot/git \
     /./home/nonroot/.local/share/gh \
     /
 COPY --link --parents --from=opencli /./home/nonroot/.local/share/mise/installs/npm-jackwener-opencli /./home/nonroot/.config/mise/conf.d/62-opencli.toml /
