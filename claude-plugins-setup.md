@@ -75,7 +75,7 @@ exec bash
 
 | 条目 | 用途 |
 |---|---|
-| `node = "26"` | firecrawl 的 npx 兜底、session-report、superpowers、claude-session-driver、pyright 运行时、modern-web-guidance |
+| `node = "26"` | firecrawl 的 npx 兜底、superpowers、claude-session-driver、pyright 运行时、modern-web-guidance |
 | `bun` | telegram 的 stdio MCP |
 | `uv` | 创建和管理共享 Python venv（2.2 节） |
 | `gh`、`jq` | commit-commands、coderabbit、remember |
@@ -217,7 +217,7 @@ for p in \
   claude-code-setup claude-md-management claude-security cloudflare code-simplifier \
   coderabbit commit-commands context7 firecrawl github gopls-lsp hookify linear \
   modern-web-guidance pyright-lsp redis-development remember rust-analyzer-lsp \
-  security-guidance session-report skill-creator superpowers telegram typescript-lsp
+  security-guidance skill-creator superpowers telegram typescript-lsp
 do
   claude plugin install "$p@claude-plugins-official" --scope user
 done
@@ -269,12 +269,12 @@ done
 插件仍然只安装一次（user scope），但不再默认全部启用。每个插件在
 [profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
-其他插件并启用自己的插件。45 个插件都有归属：42 个按角色启用，`hookify`、`skill-creator`、`redis-development` 保留原禁用状态。
+其他插件并启用自己的插件。44 个插件都有归属：42 个按角色启用，`skill-creator`、`redis-development` 保留原禁用状态。
 
 哪些插件仍保留、哪些插件删除了、哪些技能不再安装，以及各自的最后维护日期和
 卸载命令，见[配置审计](docs/audit.md)和[命令替代证据](docs/command-replacements.md)。
 
-环境安装 45 个插件（42 启用、3 禁用）。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
+环境安装 44 个插件（42 启用、2 禁用）。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
 `enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，

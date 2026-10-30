@@ -12,7 +12,7 @@
   它每次结束都会发一次模型请求，检查 fp-check 的验证流程是否完整；即使当前
   对话与安全审查无关，也会先花一次调用。[插件源码](https://github.com/trailofbits/skills/tree/main/plugins/fp-check)
 - `security-guidance`、`modern-python`、`gh-cli` 等也会注入 hooks 或 PATH shim。
-- 保留的 45 个插件的技能描述、MCP 工具、agent 描述都会进入对应角色的上下文。
+- 保留的 44 个插件的技能描述、MCP 工具、agent 描述都会进入对应角色的上下文。
 
 把这些东西按领域隔离后，路由会话只保留编排所需的最小上下文；专业会话只在被
 路由到时才付出对应成本。
@@ -57,17 +57,17 @@ claude --bg \
 
 | 配置 | 用途 | 默认档位 | 插件 / 技能 / MCP |
 |---|---|---|---|
-| `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
-| `quick` | 极小问题、单文件小改、跑命令；代码定位交给 finder。 | easy | 0 插件；searching-with-fff；fff |
-| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、session-report、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、remember；9 技能；fff |
-| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、remember；fast-rust、searching-with-fff；fff |
-| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；modular-go、searching-with-fff；fff |
-| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、piglet、searching-with-fff；fff |
-| `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、remember；searching-with-fff；fff |
-| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
-| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | easy | firecrawl、github、context7、remember；8 技能；fff |
-| `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
-| `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | 0 插件；searching-with-fff、ripwire*；fff |
+| `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、hookify、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
+| `quick` | 极小问题、单文件小改、跑命令；代码定位交给 finder。 | easy | hookify；searching-with-fff；fff |
+| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、gh-cli、hookify、remember；9 技能；fff |
+| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、gh-cli、hookify、remember；fast-rust、searching-with-fff；fff |
+| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、gh-cli、hookify、remember；modular-go、searching-with-fff；fff |
+| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、gh-cli、hookify、remember；friendly-python、piglet、searching-with-fff；fff |
+| `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、gh-cli、hookify、remember；searching-with-fff；fff |
+| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 21 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、gh-cli、hookify、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
+| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | easy | firecrawl、github、context7、hookify、remember；8 技能；fff |
+| `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | hookify、remember；think、karpathy-guidelines、searching-with-fff；fff |
+| `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | hookify；searching-with-fff、ripwire*；fff |
 
 具体技能列表以 `profiles.json` 为准，这里不重复枚举，避免文档和清单漂移。
 `finder`/`librarian` 的分工参考 Amp 的
@@ -80,13 +80,14 @@ claude --bg \
 
 完整清单以 [`build/profiles/profiles.json`](../build/profiles/profiles.json) 为准；
 [`claude-plugins.tsv`](../claude-plugins.tsv) 的最后一列是每个插件的归属。
-删除的插件/技能直接移除；`hookify`、`skill-creator`、`redis-development` 保留安装和
-原本的禁用状态，`japanese-tech-writing` 保留在 librarian：
+删除的插件/技能直接移除；`skill-creator`、`redis-development` 保留安装和原本的
+禁用状态，`japanese-tech-writing` 保留在 librarian。`hookify` 在所有角色启用。
 
 - 删除插件：`feature-dev`、`code-review`、`pr-review-toolkit`；`ralph-loop`、
   `double-shot-latte`（Stop hook 成本大于收益）。
-- 保留安装但禁用：`hookify`、`skill-creator`、`redis-development`（`unassignedPlugins`，
-  任何配置都不启用）。
+- 保留安装但禁用：`skill-creator`、`redis-development`（`unassignedPlugins`）。
+- `hookify`：所有角色和 router 默认启用；没有替代命令。
+- `gh-cli`：dev、rust、go、python、frontend 和 review 默认启用。
 - 删除技能：`design`/`ui`、`diagram-design`、`drawio-skill`、`review-code`、`deslop-*`、
   `minimax-*`、`jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、`to-issues`、
   `to-prd`、`grill-with-docs`、`triage`、`fireworks-tech-graph` 等；逐项理由见
@@ -228,7 +229,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 `ccr doctor` 会做这些检查：
 
-- 所有安装插件都有归属；`hookify`、`skill-creator`、`redis-development` 保留原本的禁用状态。
+- 所有安装插件都有归属；`skill-creator`、`redis-development` 保留原本的禁用状态；`hookify` 在所有角色启用。
 - 每个配置的插件都已安装，且 `--settings` 真的能启用它们（通过
   `claude --setting-sources "" --settings ... plugin list --json` 预检，不调用模型）。
 - `fp-check` 只在 `review`；router 启用 nmem、remember、ops 和 session-driver，但没有任何实现插件；fff 在所有角色启用。

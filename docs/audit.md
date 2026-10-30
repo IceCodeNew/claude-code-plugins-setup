@@ -1,6 +1,6 @@
 # 配置审计：删除、保留与维护边界
 
-审计日期：2026-10-31。范围：`claude-plugins.tsv` 中的 45 个插件，以及
+审计日期：2026-10-31。范围：`claude-plugins.tsv` 中的 44 个插件，以及
 `~/.claude/skills` 下的技能来源。方法：用 GitHub API 查源码仓库的默认分支最近
 提交、最近一次非批量提交、`archived` 状态；插件按目录查，外部服务按真实仓库查。
 批量 metadata/LICENSE 提交会掩盖最后修改时间，因此同时看“最后实质提交”。
@@ -25,9 +25,11 @@
 | `pr-review-toolkit` | 2026-04-28 | `/review` + thermos/Trail of Bits | 6 个专用 agent 被 review 技能合并；若要求完全等价并行度，应恢复插件（当前不恢复）。 |
 | `ralph-loop` | 2026-03-28 | router CronCreate/ledger | Stop hook 反复续跑；router 已经负责跨轮推进。 |
 | `double-shot-latte` | 2026-02-25 | 无 | 8 个月未更新；每次 Stop 调模型判断是否继续，router 自己决定。 |
+| `session-report` | 2026-04-10 | 无 | 只生成历史使用报告，不参与日常开发；删除以减少常驻插件。 |
 
-`hookify`、`skill-creator`、`redis-development` 仍安装，但保持原本的禁用状态
-（`unassignedPlugins`，任何配置都不启用）。`japanese-tech-writing` 保留在 librarian。
+`skill-creator`、`redis-development` 仍安装，但保持原本的禁用状态
+（`unassignedPlugins`，任何配置都不启用）。`hookify` 在所有角色启用；
+`japanese-tech-writing` 保留在 librarian。`session-report` 已删除。
 
 ### 真正卸载这些插件
 
@@ -97,7 +99,7 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 
 ## 五、为什么不全量卸载已删除项之外的东西
 
-- 你的要求是“环境可以全量安装，但不同配置预启用不同集合”。镜像安装 45 个插件（42 启用、3 禁用）；
+- 你的要求是“环境可以全量安装，但不同配置预启用不同集合”。镜像安装 44 个插件（42 启用、2 禁用）；
   配置层只决定启用集合。
 - 删除项已经不在镜像里，不占上下文、不会被误启用。保留项仍然全量安装，便于临时
   启用、排障和切换角色。

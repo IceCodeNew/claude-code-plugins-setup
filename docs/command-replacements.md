@@ -28,7 +28,7 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 | `pr-review-toolkit` | 189 行命令 + 6 个专用 agent（测试、类型、注释、静默失败等） | `/review` + thermos/Trail of Bits | 测试覆盖、类型设计、错误处理、注释等审查视角 | 6 个 agent 的并行分工被合并；若需要同等并行度，保留插件更稳 | 移除；如追求完全等价应恢复插件 |
 | `claude-md-management` | 179 行 skill + 3 个 references + 命令 | 无（插件保留） | — | 保留插件即可，不提供额外入口 | **保留在 dev** |
 | `claude-code-setup` | 配置推荐命令/技能 | 无（插件保留） | — | 纯 prompt 插件能自动更新；命令没有 ROI | **保留在 dev** |
-| `hookify` | 231 行创建命令 + Python 规则引擎 + 4 个 hooks | 无（插件保留禁用） | — | 保留原插件和禁用状态，不提供替代命令 | **保留安装但禁用** |
+| `hookify` | 231 行创建命令 + Python 规则引擎 + 4 个 hooks | 无（插件启用） | — | 所有角色启用原插件，不提供替代命令 | **所有角色启用** |
 | `skill-creator` | 技能创建流程/评估 | 无（插件保留禁用） | — | 保留原插件和禁用状态，不提供替代命令 | **保留安装但禁用** |
 | `security-guidance` | 11,756 行 Python hooks + tests；PostToolUse/Stop 审查 | 无 | — | 模式匹配、diff 状态、LLM 审查、误报处理无法用命令复制 | **保留在 dev** |
 | `modern-go-guidelines` | Go 版本特性/规范资料 + 检查规则 | `/go` 快捷入口 | 入口保留 | 新版本特性清单是领域资料，模型不会稳定记住 | **保留在 go/review** |
