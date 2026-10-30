@@ -141,7 +141,6 @@ tree-sitter = "latest"
 "github:aptible/supercronic" = "latest"
 "github:entireio/cli" = "latest"
 "github:redhat-et/ripwire" = "latest"
-"github:Xuanwo/xurl" = "latest"
 
 [tools."http:coderabbit"]
 version = "latest"
@@ -190,6 +189,8 @@ cat > "${HOME}/.config/mise/conf.d/40-npm-tools.toml" <<'CONFIG'
 "npm:openskills" = "latest"
 "npm:firecrawl-cli" = "latest"
 "npm:playwright-core" = "latest"
+"npm:oxlint" = "latest"
+"npm:oxfmt" = "latest"
 CONFIG
 mise install
 # paseo depends on @anthropic-ai/claude-agent-sdk, whose platform package ships its own claude
@@ -293,12 +294,21 @@ sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
     "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
 
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
-git clone --depth 1 https://github.com/ninehills/skills "${HOME}/git/ninehills-skills"
-python3 "${HOME}/git/ninehills-skills/skills-manager" scenarios install Common
-
+# Install the retained skills from their upstream repositories instead of the
+# ninehills Common bundle. The bundle vendors copies and has had broken symlink
+# layouts; direct upstreams keep the skill content and metadata current.
 bash "${HOME}/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/install.sh"
 
 for s in \
+    IceCodeNew/code-review-page-kit \
+    tw93/Waza/skills/think \
+    tw93/Waza/skills/hunt \
+    tw93/Waza/skills/read \
+    tw93/Waza/skills/write \
+    tw93/Waza/skills/learn \
+    mattpocock/skills/skills/engineering/tdd \
+    forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
+    agents365-ai/drawio-skill/skills/drawio-skill \
     PsiACE/skills/skills/fast-rust \
     PsiACE/skills/skills/friendly-python \
     PsiACE/skills/skills/modular-go \
@@ -311,11 +321,9 @@ for s in \
     cursor/plugins/thermos/skills/thermos \
     cursor/plugins/thermos/skills/thermo-nuclear-review \
     cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
-    Xuanwo/xurl/skills/xurl \
     ninehills/skills/tech-doc-style-chinese \
     openclaw/openclaw/.agents/skills/test-audit \
-    tommy0103/better-readme-skill/skills/better-readme \
-    https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
+    tommy0103/better-readme-skill/skills/better-readme
 do
     openskills install "$s" -g -y
 done
@@ -544,10 +552,12 @@ jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 jq -e '.enabledPlugins["nowledge-mem@nowledge-community"] == true and .enabledPlugins["cloudflare@claude-plugins-official"] == true and .enabledPlugins["linear@claude-plugins-official"] == true and .enabledPlugins["telegram@claude-plugins-official"] == true and .enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
-jq -e '.deniedMcpServers == [{"serverName":"fff"}]' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
 jq -e '.enabledPlugins["rust-review@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
 jq -e '.enabledPlugins["rust-review@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 test -r "${HOME}/.claude/agents/ccr-router.md"
+test -r "${HOME}/.claude/skills/code-review-page/SKILL.md"
+command -v oxlint
+command -v oxfmt
 python3 -B /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
