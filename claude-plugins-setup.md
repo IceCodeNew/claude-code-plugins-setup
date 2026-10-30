@@ -88,7 +88,7 @@ exec bash
 | `"npm:cf"` | Cloudflare cf CLI，调用 Cloudflare API、开发和部署 Workers（公开测试版） |
 | `"pypi:nmem-cli"` | nowledge-mem 的 hook 和命令 |
 | `"npm:openskills"` | 第 4 节安装第三方技能 |
-| `"github:Xuanwo/xurl"` | xurl 技能调用的 `xurl` 命令 |
+| `"npm:oxlint"` / `"npm:oxfmt"` | 前端角色默认的 oxc lint/format 工具链 |
 | `"github:redhat-et/ripwire"` | ripwire CLI，压缩包里带有第 4 节安装的 ripwire 技能 |
 | `pnpm` | 可选，modern-web-guidance 有 pnpm 时用 `pnpx` |
 | `http:coderabbit` | coderabbit CLI（下面的 URL 为 linux-x64 包） |
@@ -115,7 +115,8 @@ rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 "npm:cf" = "latest"
 "pypi:nmem-cli" = "latest"
 "npm:openskills" = "latest"
-"github:Xuanwo/xurl" = "latest"
+"npm:oxlint" = "latest"
+"npm:oxfmt" = "latest"
 "github:redhat-et/ripwire" = "latest"
 
 [tools."http:coderabbit"]
@@ -290,10 +291,12 @@ done
 `enabledPlugins` 和 `skillOverrides`。如果确定半年内不会再用某个插件/技能，再按审计
 文档的 P0/P1 顺序卸载。
 
-一些插件（简化、提交、评审、CLAUDE.md 审计等）被简化成 `~/.claude/commands/` 下的
-命令，例如 `/plan`、`/research`、`/simplify`、`/commit`、`/pr`、`/review`、`/security-check`。命令正文是
-流程和验证要求，设置 `disable-model-invocation: true`，不会进入模型上下文；路由用
-`--disable-slash-commands` 启动，命令只在子会话里可用。`ccr refresh` 会把
+简化、提交、评审、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
+例如 `/plan`、`/research`、`/simplify`、`/commit`、`/pr`、`/clean-gone`、`/review`、
+`/create-claude-hook`。命令正文是流程和验证要求，设置
+`disable-model-invocation: true`，不会进入模型上下文。router 不再使用
+`--disable-slash-commands`，因为它也要用 session-driver/remember/nmem 的技能；
+实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
 [build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
 同名但非 ccr 生成的文件会跳过并告警，不会覆盖你自己的命令。
 
@@ -319,29 +322,28 @@ claude plugin list
 
 ## 4. 第三方技能
 
-除下文明确固定的 fff 安装器和搜索技能外，技能通常跟随上游默认分支。ninehills 维护的技能用其仓库自带的 Python 脚本安装；ripwire 的技能用 ripwire 发布包自带的安装脚本安装；其余技能用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。pydantic 和 use-modern-go 以插件形式提供，已在第 3 节安装。
+除下文明确固定的 fff 安装器和搜索技能外，技能通常跟随上游默认分支。保留的技能都从各自上游直装；ripwire 的技能用 ripwire 发布包自带的安装脚本；其余用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。ninehills 只保留其自有的 `tech-doc-style-chinese`。pydantic 和 modern-go-guidelines 以插件形式提供，已在第 3 节安装。
 
 Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，因此这里不再重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "你的任务"` 发现命令。
 
-### 4.1 ninehills 技能（官方 skills-manager 脚本）
+### 4.1 上游直装（不再使用 ninehills Common）
 
-脚本按「场景」整组安装，用软链接把技能装进 `~/.codex/skills`、`~/.pi/agent/skills`、`~/.claude/skills`、`~/.hermes/skills` 四个目录，所以仓库要克隆到一个长期保留的位置。这里安装 Common 场景，具体成员以 `skills-manager scenarios list` 的输出为准。
+早期用 `ninehills/skills` 的 `skills-manager scenarios install Common` 整组安装 34 个
+技能。Common 是 vendored 副本集合：`design` 已在上游改名 `ui`；`diagram-design`
+的父目录软链接导致顶层没有 `SKILL.md`，实际不会加载；不需要的技能也会进入
+`~/.claude/skills`。本仓库已移除 Common 安装，改为只从上游直装保留的技能（4.3）。
 
-```bash
-git clone https://github.com/ninehills/skills ~/git/ninehills-skills
-cd ~/git/ninehills-skills
-python3 skills-manager scenarios list
-python3 skills-manager scenarios install Common
-```
+| 保留技能 | 上游 | 位置 |
+|---|---|---|
+| `think`、`hunt`、`read`、`write`、`learn` | tw93/Waza | dev / librarian / oracle |
+| `tdd` | mattpocock/skills | dev |
+| `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
+| `drawio-skill` | agents365-ai/drawio-skill | librarian |
+| `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
+| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | review；friendly-python 也在 python |
+| `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
-更新：
-
-```bash
-git -C ~/git/ninehills-skills pull
-python3 ~/git/ninehills-skills/skills-manager scenarios install Common
-```
-
-同一仓库中的 tech-doc-style-chinese 不属于任何场景，用 openskills 安装（见 4.3）。
+更新方式改为 `openskills update`；不再需要克隆 ninehills 仓库或运行 `skills-manager`。
 
 ### 4.2 ripwire 技能（官方 skills/install.sh）
 
@@ -355,13 +357,21 @@ ripwire 升级后技能列表可能变化，重新执行同一条命令即可：
 
 ### 4.3 其余技能（openskills）
 
-test-audit 位于 openclaw 仓库的 `.agents/skills/` 下，openskills 会把整个目录复制过来，技能正文引用的 CAMPAIGN.md 也在其中。
-
-最后一项是 GitHub Gist 上的 japanese-tech-writing（日语技术文档写作规范），openskills 直接用 gist 的 git 地址安装，技能目录名取自 SKILL.md 的 `name`。
+`code-review-page` 的仓库根目录直接有 `SKILL.md`，openskills 会按其中的 `name`
+安装为 `code-review-page`；它只应在 review 角色启用。
 
 ```bash
 cd ~
 for s in \
+  IceCodeNew/code-review-page-kit \
+  tw93/Waza/skills/think \
+  tw93/Waza/skills/hunt \
+  tw93/Waza/skills/read \
+  tw93/Waza/skills/write \
+  tw93/Waza/skills/learn \
+  mattpocock/skills/skills/engineering/tdd \
+  forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
+  agents365-ai/drawio-skill/skills/drawio-skill \
   PsiACE/skills/skills/fast-rust \
   PsiACE/skills/skills/friendly-python \
   PsiACE/skills/skills/modular-go \
@@ -374,11 +384,9 @@ for s in \
   cursor/plugins/thermos/skills/thermos \
   cursor/plugins/thermos/skills/thermo-nuclear-review \
   cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
-  Xuanwo/xurl/skills/xurl \
   ninehills/skills/tech-doc-style-chinese \
   openclaw/openclaw/.agents/skills/test-audit \
-  tommy0103/better-readme-skill/skills/better-readme \
-  https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
+  tommy0103/better-readme-skill/skills/better-readme
 do
   openskills install "$s" -g -y
 done
@@ -394,7 +402,6 @@ openskills update
 
 | 技能 | 依赖 | 安装 |
 |---|---|---|
-| xurl | `xurl` | mise（2.1 节已包含） |
 | gh-stack | `gh stack` | gh 扩展，见下方命令 |
 | read | readability-lxml、html2text | 共享 uv venv（2.2 节已包含） |
 
@@ -436,7 +443,7 @@ gh extension install github/gh-stack
 )
 ```
 
-MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|review|librarian` 在目标 worktree 里启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。路由、`quick` 和 `oracle` 不加载 fff；`dev`、`rust`、`go`、`python`、`review`、`librarian` 加载。
+MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|frontend|review|librarian|oracle` 在目标 worktree 里启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。所有角色和 router 都加载 fff；它比反复 grep 更快，成本低于模型默认的多轮搜索。
 
 技能 description 用于模型判断是否需要加载技能；正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些都是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
 
@@ -622,7 +629,7 @@ ccr
 进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/simplify`、
 `/commit`、`/review`、`/security-check`。路由本身关闭了 slash commands；如果用户在
 路由里点名一个命令，路由会把它分发给对应配置。命令清单和替代关系见
-[配置审计](docs/audit.md#一已从所有配置移除的插件)。
+[配置审计](docs/audit.md#一不再预启用的插件)。
 
 手动安装时，把脚本和 profile 源放到用户目录。`ccr` 会依次查找
 `$CCR_SOURCE_DIR`、`/opt/cc-router`、`~/.local/share/cc-router`：

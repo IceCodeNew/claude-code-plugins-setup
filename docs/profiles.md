@@ -46,7 +46,7 @@ claude --bg \
 | `--setting-sources ""` | 不加载用户的 `settings.json`、项目 settings 和 local settings。父会话的 hooks、插件开关和权限不会泄漏到子会话。 |
 | `--settings <profile>` | 只启用该配置的 `enabledPlugins` / `skillOverrides` / `hooks` / `permissions`。未列出的插件全部显式设为 `false`。 |
 | `--append-system-prompt-file` | 在 Claude Code 默认工程提示词后追加该配置的 SYSTEM prompt。路由本身用 `--agent` 替换系统提示词。 |
-| `--mcp-config` | 加载该配置的独立 MCP（dev/rust/go/python/review/librarian 的 fff）；插件自带的 MCP 随插件加载。router 用 `deniedMcpServers` 屏蔽 fff，但保留 nmem/ops 的插件 MCP。 |
+| `--mcp-config` | 加载该配置的 fff；router 也加载 fff。插件自带的 MCP 随插件加载。没有 `--strict-mcp-config`，所以 user/project MCP 也可用；fff 已从 user scope 移除，`ccr doctor` 会警告旧注册。 |
 | `--bg` | 子会话是原生后台会话，可用 `claude agents` / `claude attach` / `claude logs` 管理，并支持跨会话消息。 |
 
 用户 settings 里的 `env` 不会随 `--setting-sources ""` 加载。启动器会把
@@ -58,22 +58,24 @@ claude --bg \
 
 | 配置 | 用途 | 默认档位 | 插件 / 技能 / MCP |
 |---|---|---|---|
-| `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem 记忆和 ops 集成。 | 便宜快、上下文大 | nowledge-mem、cloudflare、linear、telegram；0 技能；无 fff |
-| `quick` | 快速问答、单文件小改、查位置、跑命令。 | easy | 0 / 0 |
-| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typescript-lsp、typesafe、session-report；14 技能；fff |
-| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp；searching-with-fff；fff |
-| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test。 | hard | gopls-lsp；searching-with-fff；fff |
-| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic。 | hard | pyright-lsp；friendly-python、searching-with-fff；fff |
-| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查。 | hard | 19 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、13 个 Trail of Bits 审查插件（含 fp-check）；8 技能；fff |
-| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7；10 技能；fff |
-| `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | 0 插件；think、karpathy-guidelines；无 MCP |
+| `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
+| `quick` | 快速问答、单文件小改、查位置、跑命令。 | easy | 0 插件；searching-with-fff；fff |
+| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、session-report、superpowers、security-guidance、claude-md-management、remember；9 技能；fff |
+| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、remember；searching-with-fff；fff |
+| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；searching-with-fff；fff |
+| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、searching-with-fff；fff |
+| `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、remember；searching-with-fff；fff |
+| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 23 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、modern-go-guidelines、modern-python、pydantic、remember、13 个 Trail of Bits 审查插件（含 fp-check）；12 技能（含 fast-rust、piglet、modular-go、friendly-python、code-review-page）；fff |
+| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；8 技能；fff |
+| `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
 
 `dev`/`review`/`librarian` 的具体技能列表以 `profiles.json` 为准，这里不重复枚举，
 避免文档和清单漂移。`librarian` 和 `oracle` 的分工参考 Amp 的
 [The Librarian](https://ampcode.com/news/librarian)（远程代码搜索）和
 [Oracle](https://ampcode.com/news/oracle)（只读分析/评审/计划）。
 
-具体技能列表以 `profiles.json` 为准；这里不重复枚举，避免文档和清单漂移。
+具体技能列表以 `profiles.json` 为准；这里不重复枚举，避免文档和清单漂移。fff
+在所有角色默认启用；它的本机索引比反复 grep 更快，成本也低于模型默认的多轮搜索。
 
 完整清单以 [`build/profiles/profiles.json`](../build/profiles/profiles.json) 为准；
 [`claude-plugins.tsv`](../claude-plugins.tsv) 的最后一列是每个插件的归属。
@@ -83,42 +85,44 @@ claude --bg \
 刻意不启用的插件与技能：
 
 - `fp-check`：只在 `review`。
-- `double-shot-latte`、`claude-session-driver`、`ralph-loop`、`remember`：和路由的
-  续跑/后台会话/ledger 职责重复，且都带 hooks。
-- `code-simplifier`、`commit-commands`、`feature-dev`、`claude-md-management`、
-  `claude-code-setup`、`hookify`、`skill-creator`、`code-review`、`pr-review-toolkit`、
-  `security-guidance`、`modern-python`、`modern-go-guidelines`、`pydantic`、
-  `superpowers`：由上面的命令或已有技能替代。
-- 失修/低价值/坏安装技能：`design`/`ui`（vendored 旧副本/上游改名）、`diagram-design`（安装布局
-  缺顶层 SKILL.md）、`review-code`、`deslop-*`、`minimax-*`、`jupyter*`、`fast-rust`、
-  `piglet`、`modular-go`、`pua`、`xurl` 等；逐项日期和理由见[配置审计](audit.md)。
-- `redis-development`、`modern-web-guidance`：当前就是 disabled；需要时再归类。
+- `double-shot-latte`、`ralph-loop`：和路由的续跑职责重复，且都带 hooks。
+- `code-simplifier`、`commit-commands`、`feature-dev`、`claude-code-setup`、`hookify`、
+  `skill-creator`、`code-review`、`pr-review-toolkit`：由命令或已有 review 技能替代。
+- 不再安装/不再启用：`design`/`ui`、`diagram-design`、`review-code`、`deslop-*`、
+  `minimax-*`、`jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、
+  `to-issues`、`to-prd`、`grill-with-docs`、`triage`、`fireworks-tech-graph` 等；
+  逐项日期和理由见[配置审计](audit.md)。
+- `redis-development`：保持全局禁用；需要时再归类。
+- `remember`、`claude-session-driver`、`security-guidance`、`modern-python`、
+  `modern-go-guidelines`、`pydantic`、`superpowers`、`claude-md-management`、
+  `modern-web-guidance`：已按反馈重新启用，位置见上表。
 
 ## 命令：把内化能力做成一次点击
 
 顶级模型已经能做的事，不再装一个常驻插件。这些命令放在
 `~/.claude/commands/`，正文是精简后的流程和验证要求，用户输入 `/name` 即可调用。
-它们都设置 `disable-model-invocation: true`，所以不会进入模型的技能列表；路由用
-`--disable-slash-commands` 启动，命令只在子会话可用。
+它们都设置 `disable-model-invocation: true`，所以不会进入模型的技能列表；路由
+不再使用 `--disable-slash-commands`，因为 router 自己也要用 session-driver、remember
+和 nmem 的技能。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
 
 | 命令 | 替代/用途 |
 |---|---|
 | `/plan` | 交给 `oracle`：决策、选项、验收标准、风险，不写实现。 |
+| `/clean-gone` | 清理远端已删除的本地分支和 worktree。 |
 | `/research` | 交给 `librarian`：跨仓库/依赖/文档搜索，带引用。 |
 | `/simplify` | 替代 `code-simplifier`：最小 diff、不改行为、跑测试。 |
 | `/commit` | 替代 `commit-commands` 的提交部分。 |
 | `/pr` | 替代 `commit-commands` 的 push/PR 部分；推送前需要确认。 |
 | `/feature` | 替代 `feature-dev`：探索、计划、实现、测试。 |
-| `/review` | 替代 `code-review` 和 `review-code`：按严重度输出文件:行、失败场景、验证。 |
-| `/review-pr` | 替代 `pr-review-toolkit`：读 PR diff、测试、错误处理、类型、兼容性。 |
+| `/review` | 合并原 `/review` 与 `/review-pr`：接受 diff/path/PR，使用 review 配置里的 thermos/rust-review/fp-check 做多 agent 与置信度判断，命令只负责输出契约；需要 HTML 评审页时用 `code-review-page`。 |
 | `/security-check` | 替代 `security-guidance`：信任边界、注入、authz、SSRF、secrets、供应链。 |
-| `/claude-md` | 替代 `claude-md-management`。 |
+| `/claude-md` | `claude-md-management` 的快捷入口；插件保留其质量标准和模板。 |
 | `/setup-audit` | 替代 `claude-code-setup` 和 `health`。 |
-| `/hook` | 替代 `hookify`；强制优先确定性 hook。 |
-| `/skill` | 替代 `skill-creator`。 |
-| `/python` | 在 `python` 角色使用；替代 `modern-python`、`piglet` 的常驻部分；`friendly-python` 保留在 python 角色。 |
-| `/go` | 在 `go` 角色使用；替代 `modern-go-guidelines`、`modular-go`。 |
-| `/pydantic` | 在 `python` 角色使用；替代 `pydantic` 插件。 |
+| `/create-claude-hook` | 替代 `hookify` 的创建流程；强制优先确定性 hook。 |
+| `/create-claude-skill` | 替代 `skill-creator` 的创建流程。 |
+| `/python` | `python` 角色的快捷入口；`modern-python`、`pydantic` 插件保留，命令不替代它们。 |
+| `/go` | `go` 角色的快捷入口；`modern-go-guidelines` 插件保留。 |
+| `/pydantic` | `python` 角色的 Pydantic 快捷入口；插件保留。 |
 | `/ui` | 替代 stale 的 vendored `design` 技能（Waza 已改名为 `ui`）。 |
 
 命令是全局安装的：不同配置共享同一组快捷命令；配置差异体现在插件、技能、MCP、
@@ -127,17 +131,19 @@ hooks 和 SYSTEM prompt，而不是再把命令复制多份。新增/修改命�
 
 ## 路由做什么
 
-路由本身是一个只读的编排会话，工具限制为 `Bash`、`Read`、`Glob`、`Grep`、
-`TodoWrite`、`ListAgents`、`SendMessage`、`CronCreate`、`CronDelete`、
-`CronList`、`AskUserQuestion`。它不编辑仓库文件；`disallowedTools` 明确移除 Edit/Write/NotebookEdit/Agent/Workflow。
-它启用了 nmem 和三个 ops 插件，因此会使用它们的 MCP 工具；但 slash commands 被
-`--disable-slash-commands` 关闭，需要用户命令时仍在子会话执行。
+路由本身是一个只读的编排会话；`disallowedTools` 明确移除
+Edit/Write/NotebookEdit/Agent/Workflow。它启用了 nmem、remember、Cloudflare/Linear/
+Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash commands 仍然
+可见，但 prompt 要求实现类命令必须分发到子会话，只有用户明确要求原地执行的只读
+`/plan`、`/research` 例外。
 
 ### 意图判断
 
 每个新任务按两个维度判断：
 
-- **领域**：`quick` / `dev` / `rust` / `go` / `python` / `review` / `librarian` / `oracle`。
+- **领域**：`quick` / `dev` / `rust` / `go` / `python` / `frontend` / `review` / `librarian` / `oracle`。
+  前端角色默认使用 oxc（`oxlint`/`oxfmt`）；Go/Python/Rust 角色优先使用 mise 里的最新
+  稳定工具链，但不得超出仓库的 `go` 指令、`requires-python` 或 `rust-version`。
 - **档位**：`hard`（设计、调试、跨文件修改、规划、审查、安全）或 `easy`
   （快速问答、单文件小改、查资料、跑命令）。
 
@@ -231,7 +237,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 - 所有已安装插件都被归类，或者明确列在 `unassignedPlugins`。
 - 每个配置的插件都已安装，且 `--settings` 真的能启用它们（通过
   `claude --setting-sources "" --settings ... plugin list --json` 预检，不调用模型）。
-- `fp-check` 只在 `review`；router 只启用 nmem + Cloudflare/Linear/Telegram，且 fff 被 `deniedMcpServers` 屏蔽。
+- `fp-check` 只在 `review`；router 启用 nmem、remember、ops 和 session-driver，但没有任何实现插件；fff 在所有角色启用。
 - 生成物、router agent、MCP 配置存在。
 - 用户 settings 里仍然启用的插件（`ccr` 会忽略，但 plain `claude` 会加载）和
   user-scope fff 注册会给出警告和修复命令。
@@ -240,9 +246,9 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 ```text
 /context     # 系统提示词、技能、MCP、hooks 的来源
-/hooks       # 只应看到路由的 UserPromptSubmit hint
-/plugin      # 所有 marketplace 插件应为 disabled
-/skills      # 不应看到专业配置的个人技能
+/hooks       # 路由 hint + remember/nmem 的记忆 hooks
+/plugin      # 只启用 nmem、remember、ops、session-driver
+/skills      # searching-with-fff + 上述插件的技能
 ```
 
 在子会话里：
@@ -256,13 +262,15 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 ## 隔离边界
 
 - **插件 hooks**：由 `enabledPlugins` 控制；禁用插件的 hooks 不加载。fp-check 的
-  Stop/SubagentStop 不会进入路由、dev、rust、go、python、librarian、oracle。
+  Stop/SubagentStop 不会进入路由、dev、rust、go、python、frontend、librarian、oracle。
+  `security-guidance` 的 hooks 只在 dev（按你的要求把安全检查前移）；`remember`/nmem
+  的 hooks 是记忆功能本身，按配置启用。
 - **个人技能**：`skillOverrides` 把未归属技能设为 `"off"`。插件自带的技能不受
   `skillOverrides` 影响，跟随插件开关。
 - **MCP**：子会话用 `--mcp-config` 添加 fff，插件自带的 MCP 随插件启用。router 用
-  `deniedMcpServers: [{serverName: fff}]` 屏蔽 fff，保留 nmem/Cloudflare/Linear/Telegram
-  的插件 MCP；子会话和 router 都不会强制排除 user/project MCP，fff 已从 user scope 移除，
-  迁移说明见下，`ccr doctor` 会警告旧注册。
+  fff 在每个角色都通过 `--mcp-config` 加载，router 也一样；插件 MCP 随插件启用。没有
+  `--strict-mcp-config`，所以 user/project MCP 也可用；fff 已从 user scope 移除，迁移
+  说明见下，`ccr doctor` 会警告旧注册。
 - **用户/项目 settings**：`--setting-sources ""` 全部忽略。项目 `CLAUDE.md` 和用户
   `CLAUDE.md` 仍然通过消息流程加载，这是有意的。
 - **用户 hooks**：不进入任何 `ccr` 会话。需要全局执行的策略应放进配置生成器或
