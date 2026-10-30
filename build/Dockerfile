@@ -452,6 +452,8 @@ COPY --link --parents --from=npm-tools \
     /./home/nonroot/.local/share/mise/installs/npm-openskills \
     /./home/nonroot/.local/share/mise/installs/npm-firecrawl-cli \
     /./home/nonroot/.local/share/mise/installs/npm-playwright-core \
+    /./home/nonroot/.local/share/mise/installs/npm-oxlint \
+    /./home/nonroot/.local/share/mise/installs/npm-oxfmt \
     /./home/nonroot/.config/mise/conf.d/40-npm-tools.toml \
     /
 COPY --link --parents --from=browsers /./home/nonroot/.cache/ms-playwright /
