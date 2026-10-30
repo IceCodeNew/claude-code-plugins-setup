@@ -285,8 +285,8 @@ class Profiles(unittest.TestCase):
         if not dockerfile:
             dockerfile = (SOURCE.parent.parent / "build/Dockerfile").read_text() if (SOURCE.parent.parent / "build/Dockerfile").is_file() else ""
         if dockerfile:
-            for skill in ("check", "health", "hunt", "learn", "read", "think", "ui", "write"):
-                self.assertIn(f"tw93/Waza/skills/{skill}", dockerfile)
+            self.assertIn("tw93/Waza", dockerfile)
+            self.assertNotIn("tw93/Waza/skills/check", dockerfile)
         self.assertIn("ui", self.manifest["profiles"]["frontend"]["skills"])
         self.assertIn("check", self.manifest["profiles"]["review"]["skills"])
         self.assertIn("health", self.manifest["profiles"]["dev"]["skills"])
