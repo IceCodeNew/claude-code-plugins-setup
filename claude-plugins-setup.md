@@ -427,7 +427,7 @@ gh extension install github/gh-stack
 )
 ```
 
-MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|frontend|review|librarian|oracle` 在目标 worktree 里启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。所有角色和 router 都加载 fff；它比反复 grep 更快，成本低于模型默认的多轮搜索。
+MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|frontend|review|librarian|oracle|finder` 在目标 worktree 里启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。所有角色和 router 都加载 fff；它比反复 grep 更快，成本低于模型默认的多轮搜索。
 
 技能 description 用于模型判断是否需要加载技能；正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些都是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
 
@@ -636,12 +636,13 @@ ccr doctor --strict
 hooks venv。
 
 模型档位用环境变量覆盖，默认 `CCR_ROUTER_MODEL=haiku`、`CCR_HARD_MODEL=opus`、
-`CCR_EASY_MODEL=haiku`。路由要“便宜、快、上下文大”时，把它设成你的提供商里符合条件
+`CCR_MEDIUM_MODEL=sonnet`、`CCR_EASY_MODEL=haiku`。路由要“便宜、快、上下文大”时，把它设成你的提供商里符合条件
 的别名，然后重新 `ccr refresh`：
 
 ```bash
 export CCR_ROUTER_MODEL=fable   # 例：网关把 fable 映射到 1M 上下文的便宜模型
 export CCR_HARD_MODEL=opus
+export CCR_MEDIUM_MODEL=sonnet
 export CCR_EASY_MODEL=haiku
 ccr refresh
 ```

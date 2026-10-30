@@ -34,7 +34,7 @@ claude --bg \
   --settings ~/.local/state/cc-router/profiles/<profile>/settings.json \
   --append-system-prompt-file ~/.local/state/cc-router/profiles/<profile>/prompt.md \
   --mcp-config ~/.local/state/cc-router/profiles/<profile>/mcp.json \
-  --model <hard|easy 模型> \
+  --model <easy|medium|hard 模型> \
   -- <任务>
 ```
 
@@ -58,18 +58,20 @@ claude --bg \
 | 配置 | 用途 | 默认档位 | 插件 / 技能 / MCP |
 |---|---|---|---|
 | `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
-| `quick` | 快速问答、单文件小改、查位置、跑命令。 | easy | 0 插件；searching-with-fff；fff |
+| `quick` | 极小问题、单文件小改、跑命令；代码定位交给 finder。 | easy | 0 插件；searching-with-fff；fff |
 | `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、session-report、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、remember；9 技能；fff |
 | `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、remember；fast-rust、searching-with-fff；fff |
 | `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；modular-go、searching-with-fff；fff |
 | `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、piglet、searching-with-fff；fff |
 | `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、remember；searching-with-fff；fff |
 | `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；7 技能（含 code-review-page）；fff |
-| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；8 技能；fff |
+| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | easy | firecrawl、github、context7、remember；8 技能；fff |
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
+| `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | 0 插件；searching-with-fff；fff |
 
-`dev`/`review`/`librarian` 的具体技能列表以 `profiles.json` 为准，这里不重复枚举，
-避免文档和清单漂移。`librarian` 和 `oracle` 的分工参考 Amp 的
+具体技能列表以 `profiles.json` 为准，这里不重复枚举，避免文档和清单漂移。
+`finder`/`librarian` 的分工参考 Amp 的
+[Finder](https://ampcode.com/@amp/plugins/finder.ts)（本地搜索）、
 [The Librarian](https://ampcode.com/news/librarian)（远程代码搜索）和
 [Oracle](https://ampcode.com/news/oracle)（只读分析/评审/计划）。
 
@@ -128,7 +130,7 @@ Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash
 
 每个新任务按两个维度判断：
 
-- **领域**：`quick` / `dev` / `rust` / `go` / `python` / `frontend` / `review` / `librarian` / `oracle`。
+- **领域**：`quick` / `dev` / `rust` / `go` / `python` / `frontend` / `review` / `librarian` / `oracle` / `finder`。
   前端角色默认使用 oxc（`oxlint`/`oxfmt`）；Go/Python/Rust 角色优先使用 mise 里的最新
   稳定工具链，但不得超出仓库的 `go` 指令、`requires-python` 或 `rust-version`。
 - **档位**：`hard`（设计、调试、跨文件修改、规划、审查、安全）或 `easy`
@@ -143,8 +145,9 @@ Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash
 | 环境变量 | 默认 | 用途 |
 |---|---|---|
 | `CCR_ROUTER_MODEL` | `haiku` | 路由会话本身 |
-| `CCR_HARD_MODEL` | `opus` | hard 子会话 |
-| `CCR_EASY_MODEL` | `haiku` | easy 子会话 |
+| `CCR_HARD_MODEL` | `opus` | hard 子会话（oracle、dev、review 等） |
+| `CCR_MEDIUM_MODEL` | `sonnet` | medium 子会话（finder） |
+| `CCR_EASY_MODEL` | `haiku` | easy 子会话（librarian、quick） |
 
 默认值只是保守的官方别名。路由要“最便宜、最快、上下文最大”时，应把它设成你的
 提供商里符合这个条件的模型。例如网关把 `fable` 映射到 1M 上下文的便宜模型时：
@@ -152,12 +155,15 @@ Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash
 ```bash
 export CCR_ROUTER_MODEL=fable
 export CCR_HARD_MODEL=opus
+export CCR_MEDIUM_MODEL=sonnet
 export CCR_EASY_MODEL=haiku
 ccr refresh
 ```
 
-`--tier easy` 只换模型，不换配置：小的 Rust 改动仍然走 `rust`，但用 easy 模型；
-大的跨文件改动走 `dev` + hard。
+`--tier easy|medium|hard` 只换模型，不换配置：小的 Rust 改动仍然走 `rust`，但用
+easy 模型；`finder` 默认 medium；`librarian` 默认 easy；oracle 和实现角色默认 hard。
+Amp 的 `oracle-astra xhigh / librarian-luna low / finder-astra low` 在这里分别映射为
+Claude 的 `opus / haiku / sonnet`，不是路由到 GPT。
 
 ### 上下文管理
 
@@ -249,7 +255,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 ## 隔离边界
 
 - **插件 hooks**：由 `enabledPlugins` 控制；禁用插件的 hooks 不加载。fp-check 的
-  Stop/SubagentStop 不会进入路由、dev、rust、go、python、frontend、librarian、oracle。
+  Stop/SubagentStop 不会进入路由、dev、rust、go、python、frontend、librarian、oracle、finder。
   `security-guidance` 的 hooks 只在 dev（按你的要求把安全检查前移）；`remember`/nmem
   的 hooks 是记忆功能本身，按配置启用。
 - **个人技能**：`skillOverrides` 把未归属技能设为 `"off"`。插件自带的技能不受

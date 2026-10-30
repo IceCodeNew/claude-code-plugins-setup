@@ -2,7 +2,7 @@
 
 预装开发工具、Claude Code 插件与技能的 Linux 开发镜像，也提供使用 mise 和 uv 的[手动安装手册](claude-plugins-setup.md)。镜像包含 Claude Code、Codex、Chromium、fff MCP、Entire CLI 和可选安全 hooks；各服务的登录凭据需自行配置。
 
-插件和技能不再全部挂在同一个会话上。日常入口是**路由配置** `ccr`：它判断意图，把任务分发给 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle` 中合适的后台子会话，并维护每个子会话的上下文；nmem 记忆和 Cloudflare/Linear/Telegram 等 ops 集成留在路由。完整说明见[路由配置与专业配置](docs/profiles.md)。
+插件和技能不再全部挂在同一个会话上。日常入口是**路由配置** `ccr`：它判断意图，把任务分发给 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle`、`finder` 中合适的后台子会话，并维护每个子会话的上下文；nmem 记忆和 Cloudflare/Linear/Telegram 等 ops 集成留在路由。完整说明见[路由配置与专业配置](docs/profiles.md)。
 
 ## 快速使用
 
@@ -35,8 +35,8 @@ ccr summary         # 汇总各子会话进度
 路由自己只加载记忆/运维/会话编排插件，不加载实现类领域插件；`fp-check` 这类带全局 hooks 的插件只在
 `review` 配置启用。子会话通过 `--setting-sources ""`、各自的 `--settings`、
 `--append-system-prompt-file`、`--mcp-config` 和 `--model` 启动，互不继承插件、
-技能或 hooks；插件自带的 MCP 随插件启用，fff 在所有角色（包括 router）通过 `--mcp-config` 加载。模型档位用 `CCR_ROUTER_MODEL` / `CCR_HARD_MODEL` /
-`CCR_EASY_MODEL` 覆盖，默认分别是 `haiku`、`opus`、`haiku`。
+技能或 hooks；插件自带的 MCP 随插件启用，fff 在所有角色（包括 router）通过 `--mcp-config` 加载。模型档位用 `CCR_ROUTER_MODEL` / `CCR_HARD_MODEL` / `CCR_MEDIUM_MODEL` /
+`CCR_EASY_MODEL` 覆盖，默认分别是 `haiku`、`opus`、`sonnet`、`haiku`。
 
 ## 使用范围
 
