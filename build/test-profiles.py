@@ -247,7 +247,7 @@ class Profiles(unittest.TestCase):
         for name in self.manifest["profiles"]:
             self.assertIn(f"`{name}`", router)
 
-    def test_commands_are_installed_user_invocable_and_marked(self):
+    def test_commands_are_installed_model_invocable_and_marked(self):
         commands = self.config / "commands"
         self.assertTrue(commands.is_dir())
         installed = {path.stem for path in commands.glob("*.md")}
@@ -258,7 +258,7 @@ class Profiles(unittest.TestCase):
         for name in installed:
             text = (commands / f"{name}.md").read_text()
             self.assertIn("<!-- ccr-command -->", text)
-            self.assertIn("disable-model-invocation: true", text)
+            self.assertNotIn("disable-model-invocation: true", text)
 
     def test_offline_plugins_are_deleted_and_disabled_ones_are_kept(self):
         deleted = {
@@ -299,6 +299,10 @@ class Profiles(unittest.TestCase):
         finder = self.settings("finder")
         self.assertTrue(finder.get("permissions", {}).get("deny"))
         self.assertTrue((self.state / "profiles/finder/mcp.json").is_file())
+        self.assertEqual(
+            finder["skillOverrides"].get("ripwire-review"),
+            "on",
+        )
 
     def test_frontend_and_language_roles_own_their_toolchain(self):
         frontend = self.settings("frontend")["enabledPlugins"]
