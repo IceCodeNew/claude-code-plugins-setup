@@ -22,7 +22,7 @@
 
 ## 1. 系统包和 mise
 
-mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。ralph-loop 的 stop-hook 用 perl 提取 `<promise>` 标签，缺了不会报错，但循环永远不会结束；Debian、Ubuntu、Fedora 都自带 perl，不用另装。
+mise registry 里没有 git 和 lsof。curl 用来装 mise 本身。Debian、Ubuntu、Fedora 都自带 perl，不用另装。
 
 ```bash
 # Debian / Ubuntu
@@ -78,8 +78,8 @@ exec bash
 | `node = "26"` | firecrawl 的 npx 兜底、session-report、superpowers、claude-session-driver、pyright 运行时、modern-web-guidance |
 | `bun` | telegram 的 stdio MCP |
 | `uv` | 创建和管理共享 Python venv（2.2 节） |
-| `gh`、`jq` | code-review、commit-commands、pr-review-toolkit、coderabbit、remember、ralph-loop、double-shot-latte |
-| `claude-code` | Claude Code 本身；remember、security-guidance、skill-creator 也会调用 `claude` |
+| `gh`、`jq` | commit-commands、coderabbit、remember |
+| `claude-code` | Claude Code 本身；remember、security-guidance 也会调用 `claude` |
 | `go`、`"go:golang.org/x/tools/gopls"` | gopls-lsp |
 | `rust`（带 `rust-src`、`rust-analyzer` 组件） | rust-analyzer-lsp。mise 按 minimal profile 装的 rust 没有 rust-src，rust-analyzer 无法分析标准库；rust-analyzer 用 rustup 组件，版本和工具链一致 |
 | `"npm:typescript" = "6"` | typescript 7 是 Go 原生版，包里没有 `tsserver.js`，typescript-language-server 6.0.0 用不了 |
@@ -153,7 +153,6 @@ echo "alias cr=coderabbit" >> ~/.bashrc
 | 插件 | 包 | 怎么用到这个 venv |
 |---|---|---|
 | security-guidance | claude-agent-sdk | hook 用 `sg-python.sh` 按 python3.13 → 3.10 → python3 的顺序找解释器。venv 激活后找到的是 venv 里的 python3.13，SDK 可以直接 import。另外把 `~/.claude/security/agent-sdk-venv` 软链接到这个 venv，claude 不在激活了 mise 的 shell 里启动时也能用 |
-| skill-creator | pyyaml | SKILL.md 里调用的是 `python -m scripts...`，venv 提供 `python` 命令，且能 `import yaml` |
 | pyright-lsp | pyright | venv 的 `bin/` 里有 `pyright-langserver`，运行时用 mise 的 node |
 | read 技能（第 4 节） | readability-lxml、html2text | 本地网页正文提取；缺少时退回标准库解析，输出质量较差 |
 
@@ -165,7 +164,7 @@ venv 的 Python 固定为 3.13：`sg-python.sh` 只探测 python3.13 到 3.10 �
 cat >> ~/.config/mise/config.toml <<'EOF'
 
 [env]
-# Claude 插件共用的 uv venv（security-guidance、skill-creator、pyright-lsp），mise 激活时自动创建并加入 PATH
+# Claude 插件共用的 uv venv（security-guidance、pyright-lsp），mise 激活时自动创建并加入 PATH
 _.python.venv = { path = "{{ env.HOME }}/.local/share/claude-plugins-venv", create = true, python = "3.13" }
 # github MCP 用；从 mise 装的 gh 读取登录 token，gh 未安装或未登录时为空
 GITHUB_PERSONAL_ACCESS_TOKEN = "{{ exec(command='for g in $HOME/.local/share/mise/installs/gh/latest/*/bin/gh; do $g auth token 2>/dev/null || true; done') }}"
@@ -192,7 +191,7 @@ uv pip install --python ~/.local/share/claude-plugins-venv/bin/python -U claude-
 
 副作用：`_.python.venv` 写在全局配置里，所有激活了 mise 的 shell 都会激活这个 venv。`python`、`python3` 都指向它，`VIRTUAL_ENV` 也会被设置。在别的 uv 项目里跑 `uv` 时，它会提示 `VIRTUAL_ENV` 和项目的 `.venv` 不一致并忽略它，不影响结果。venv 的 `bin/` 里还有 SDK 依赖带进来的 `mcp`、`uvicorn`、`httpx2` 等命令，也会出现在 PATH 上。
 
-由 IDE 等不经过 `mise activate` 的方式启动 claude 时，venv 不在 PATH 上：security-guidance 通过软链接仍可使用，pyright-lsp 和 skill-creator 的 `python` 则找不到。
+由 IDE 等不经过 `mise activate` 的方式启动 claude 时，venv 不在 PATH 上：security-guidance 通过软链接仍可使用，pyright-lsp 的 `python` 则找不到。
 
 ---
 
@@ -215,18 +214,16 @@ claude plugin marketplace update
 
 ```bash
 for p in \
-  claude-code-setup claude-md-management claude-security cloudflare code-review \
-  code-simplifier coderabbit commit-commands context7 feature-dev firecrawl github \
-  gopls-lsp hookify linear modern-web-guidance pr-review-toolkit pyright-lsp \
-  ralph-loop redis-development remember rust-analyzer-lsp security-guidance \
-  session-report skill-creator superpowers telegram typescript-lsp
+  claude-code-setup claude-md-management claude-security cloudflare code-simplifier \
+  coderabbit commit-commands context7 firecrawl github gopls-lsp linear \
+  modern-web-guidance pyright-lsp remember rust-analyzer-lsp security-guidance \
+  session-report superpowers telegram typescript-lsp
 do
   claude plugin install "$p@claude-plugins-official" --scope user
 done
 claude plugin install nowledge-mem@nowledge-community --scope user
 claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
-claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
 ```
@@ -251,29 +248,18 @@ curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；
 认证见[登录与认证](#5-登录与认证)。会话结束时会删除该会话的 `gh-clones-<session_id>`
 临时克隆目录，其中的修改也会丢失，需保留的工作应放在其他目录。
 
-`modern-python` 会添加 PATH shims，拦截直接运行的 python/pip/pipx/uv-pip 命令并提示改用 uv；本仓库已不再预启用它，`python` 角色用 `/python` 命令承载同样的约定。CodeQL、Semgrep 等分析工具按任务需要另行安装，安装插件不会安装这些工具。
+`modern-python` 会添加 PATH shims，拦截直接运行的 python/pip/pipx/uv-pip 命令并提示改用 uv；它只在 `python` 角色启用，review 不重复启用。CodeQL、Semgrep 等分析工具按任务需要另行安装，安装插件不会安装这些工具。
 
-`double-shot-latte` 的 Stop hook 会调用 Claude 判断是否继续，默认使用 Haiku，可能增加调用费用。`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
+`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
 
 `typesafe` 来自 [TypeSafe 官方技能仓库](https://github.com/typesafe-ai/skills)，为 Claude Code 提供 TypeSafe API 的使用说明；可用 `/typesafe:typesafe-ai` 调用。更新时运行 `claude plugin marketplace update typesafe-ai` 和 `claude plugin update typesafe@typesafe-ai`。使用 TypeSafe API 时需另行配置 API key，安装插件无需 API key。
 
 在脚本或管道里跑、stdin/stdout 不是终端时，给需要确认的安装加 `-y`。
 
-`double-shot-latte` 1.2.0 的 `hooks/run-hook.cmd` 没有 shebang，Claude Code 运行 Stop hook 时由 `/bin/sh` 解释。Debian、Ubuntu 的 `/bin/sh` 是 dash，不支持其中的 `${BASH_SOURCE[0]}`，每次触发都报 `Bad substitution`，判断脚本不会运行（[上游 issue](https://github.com/obra/double-shot-latte/issues/37)）。安装后改为 POSIX 写法：
+`modern-web-guidance` 只由 frontend 配置启用；为 plain `claude` 保持禁用：
 
 ```bash
-sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
-  ~/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
-```
-
-修改位于插件缓存，重装或更新该插件后需重新执行。镜像构建时已执行；已有持久化 home 保留旧缓存，需要在该 home 内执行一次。上游修复后表达式不再匹配，命令不改动文件。检查命令见[验证](#6-验证)。
-
-以下插件装好后禁用：
-
-```bash
-for p in redis-development modern-web-guidance; do
-  claude plugin disable "$p@claude-plugins-official" --scope user
-done
+claude plugin disable modern-web-guidance@claude-plugins-official --scope user
 ```
 
 ### 3.1 插件归属
@@ -281,18 +267,16 @@ done
 插件仍然只安装一次（user scope），但不再默认全部启用。每个插件在
 [profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
-其他插件并启用自己的插件。没有归属的插件（清单最后一列为 `-`）保持安装但不在任何
-配置启用。
+其他插件并启用自己的插件。42 个保留插件都有归属；删除项已不在镜像和清单里。
 
-哪些插件被替换成命令、哪些技能已经失修，以及各自的最后维护日期和卸载命令，见
-[配置审计](docs/audit.md)。
+哪些插件仍保留、哪些插件删除了、哪些技能不再安装，以及各自的最后维护日期和
+卸载命令，见[配置审计](docs/audit.md)和[命令替代证据](docs/command-replacements.md)。
 
-环境仍然全量安装。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
-`enabledPlugins` 和 `skillOverrides`。如果确定半年内不会再用某个插件/技能，再按审计
-文档的 P0/P1 顺序卸载。
+环境安装 42 个保留插件。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
+`enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
-简化、提交、评审、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
-例如 `/plan`、`/research`、`/simplify`、`/commit`、`/pr`、`/clean-gone`、`/review`、
+评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
+例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/simplify`、
 `/create-claude-hook`。命令正文是流程和验证要求，设置
 `disable-model-invocation: true`，不会进入模型上下文。router 不再使用
 `--disable-slash-commands`，因为它也要用 session-driver/remember/nmem 的技能；
@@ -309,7 +293,6 @@ hooks 不会泄漏到路由或其他配置。`fp-check` 只在 `review` 配置�
 
 ```bash
 cut -f1 claude-plugins.tsv | xargs -n1 claude plugin install --scope user
-awk -F'\t' '$4=="false"{print $1}' claude-plugins.tsv | xargs -n1 claude plugin disable --scope user
 ```
 
 核对：
@@ -338,12 +321,11 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 | `think`、`hunt`、`read`、`write`、`learn` | tw93/Waza | dev / librarian / oracle |
 | `tdd` | mattpocock/skills | dev |
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
-| `drawio-skill` | agents365-ai/drawio-skill | librarian |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
-| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | review；friendly-python 也在 python |
+| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / python / python；review 不重复 |
 | `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
-更新方式改为 `openskills update`；不再需要克隆 ninehills 仓库或运行 `skills-manager`。
+Waza、tdd、karpathy-guidelines 不再从 ninehills 安装；ninehills 仅保留自有 `tech-doc-style-chinese`。更新方式改为 `openskills update`，不再需要克隆 ninehills 仓库或运行 `skills-manager`。
 
 ### 4.2 ripwire 技能（官方 skills/install.sh）
 
@@ -371,7 +353,6 @@ for s in \
   tw93/Waza/skills/learn \
   mattpocock/skills/skills/engineering/tdd \
   forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
-  agents365-ai/drawio-skill/skills/drawio-skill \
   PsiACE/skills/skills/fast-rust \
   PsiACE/skills/skills/friendly-python \
   PsiACE/skills/skills/modular-go \
@@ -425,7 +406,7 @@ gh extension install github/gh-stack
   bash "$installer"
 )
 "$HOME/.local/bin/fff-mcp" --version
-# fff 不再注册到 user scope；4.8 的 ccr refresh 会把它写进 dev/rust/review 的 mcp.json
+# fff 不再注册到 user scope；4.8 的 ccr refresh 会把它写进每个角色和 router 的 mcp.json
 ```
 
 技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
@@ -458,7 +439,7 @@ Claude Code 没有像 skill description 那样按关键词或行为自动启用�
 | Tool Search | 按需加载完整工具定义 | 工具名称和 server instructions 仍会加载；自定义 API 地址默认回退到预加载，代理必须兼容 tool reference 才能开启 |
 | `MCP_DISCOVERY_CACHE=1`（可选） | 缓存发现结果，允许延迟连接到首次使用 | 主要减少启动/连接工作，不等于省掉工具定义上下文；不是关键词触发 |
 
-本仓库不再把 fff 注册到 user scope，只写进三个专业配置的 `mcp.json`。如果你在旧版本里注册过 user scope，先移除：
+本仓库不再把 fff 注册到 user scope，只写进每个角色和 router 的 `mcp.json`。如果你在旧版本里注册过 user scope，先移除：
 
 ```bash
 claude mcp remove --scope user fff
@@ -475,7 +456,7 @@ claude mcp remove --scope user fff
 #### 持久化 home 的注册修复
 
 新镜像的 `/usr/local/share/claude-dev/mcp.json` 默认为空；fff 由 `ccr refresh` 写进
-`~/.local/state/cc-router/profiles/{dev,rust,review}/mcp.json`，启动子会话时通过
+`~/.local/state/cc-router/profiles/*/mcp.json` 和 `runtime/router-mcp.json`，启动会话时通过
 `--mcp-config` 加载；插件自带的 MCP 仍随插件加载。持久化 home 里的旧 user-scope fff 不会自动删除，
 但 `ccr` 会忽略它；按上面的 `claude mcp remove --scope user fff` 清理即可。`entrypoint.sh`
 仍保留 `--init-mcp` 机制，供以后新增镜像级 MCP 默认项使用；损坏配置不会重置，入口脚本
@@ -626,10 +607,12 @@ ccr doctor --strict
 ccr
 ```
 
-进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/simplify`、
-`/commit`、`/review`、`/security-check`。路由本身关闭了 slash commands；如果用户在
-路由里点名一个命令，路由会把它分发给对应配置。命令清单和替代关系见
-[配置审计](docs/audit.md#一不再预启用的插件)。
+进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/plan`、
+`/research`、`/feature`、`/review`、`/security-check`、`/simplify`、
+`/create-claude-hook`。
+路由保留命令可见，但 prompt 要求实现类命令分发给对应配置，只有只读的 `/plan`、
+`/research` 可按用户明确要求原地执行。命令清单见
+[配置与命令](docs/profiles.md#命令把内化能力做成一次点击)。
 
 手动安装时，把脚本和 profile 源放到用户目录。`ccr` 会依次查找
 `$CCR_SOURCE_DIR`、`/opt/cc-router`、`~/.local/share/cc-router`：
@@ -680,7 +663,7 @@ claude auth login
 
 | 插件 | 要做的事 |
 |---|---|
-| code-review、commit-commands、pr-review-toolkit、coderabbit autofix、superpowers 诊断、github MCP、gh-cli | `gh auth login` |
+| commit-commands、coderabbit autofix、superpowers 诊断、github MCP、gh-cli | `gh auth login` |
 | coderabbit | `coderabbit auth login`（EU 区加 `--region eu`） |
 | firecrawl | `firecrawl login --browser`，或 `firecrawl login --api-key fc-...`，或设置环境变量 `FIRECRAWL_API_KEY` |
 | linear、cloudflare MCP | 在 claude 里执行 `/mcp`，选中后在浏览器授权 |
@@ -688,7 +671,7 @@ claude auth login
 | nowledge-mem | 本机运行 Mem 时不用配置；连远程服务器见下 |
 | cloudflare wrangler（可选） | `wrangler login`；没有浏览器时设置 `CLOUDFLARE_API_TOKEN`，turnstile 还要 `CLOUDFLARE_ACCOUNT_ID` |
 | Cloudflare cf CLI | `cf auth login`；SSH/容器中用 `cf auth login --no-browser`，按提示在本机浏览器完成设备授权；自动化可设置 `CLOUDFLARE_API_TOKEN` |
-| remember、security-guidance、skill-creator | 沿用 claude 本身的登录，不用单独配置 |
+| remember、security-guidance | 沿用 claude 本身的登录，不用单独配置 |
 
 ```bash
 gh auth login
@@ -724,8 +707,6 @@ python -c 'import claude_agent_sdk, yaml; print("claude_agent_sdk + pyyaml ok")'
 # security-guidance 自己的检查：(0, '', '') 表示直接用当前 python，(1, '', '') 表示走软链接回退
 (cd ~/.claude/plugins/cache/claude-plugins-official/security-guidance/*/hooks && \
   python3.13 -c 'import ensure_agent_sdk as e; print(e.main())')
-# double-shot-latte 的 Stop hook 经 dash 启动：应输出 "No transcript available for evaluation"，报 Bad substitution 时执行第 3 节的修改
-echo '{}' | sh ~/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd claude-judge-continuation
 ls -l "$(mise where npm:typescript-language-server)/node_modules/typescript"   # 指向 typescript 6
 rustc --print sysroot | xargs -I{} test -d {}/lib/rustlib/src/rust/library && echo "rust-src ok"
 [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && echo "github token ok" || echo "github token EMPTY"
@@ -749,10 +730,10 @@ gh stack --help | head -1
 启动路由 `ccr` 之后：
 
 ```text
-/mcp                  # 路由应为空；fff 只在 dev/rust/review 子会话
-/hooks                # 只应看到路由的 UserPromptSubmit 关键词 hint
-/plugin               # 所有 marketplace 插件应为 disabled
-/skills               # 不应出现专业配置的技能
+/mcp                  # fff + nmem/remember/ops/session-driver 的插件 MCP
+/hooks                # 路由 hint + remember/nmem 的记忆 hooks
+/plugin               # 只启用 nmem/remember/ops/session-driver
+/skills               # searching-with-fff + 上述插件的技能
 ```
 
 用 `ccr spawn --profile dev --tier easy --name verify --prompt-file -` 派一个验证子会话，
@@ -762,7 +743,7 @@ attach 后检查：
 /mcp                  # dev 配置应看到 fff connected
 /hooks                # block-rm、protected-branches、require-tmux、post-edit-check
 /skills               # 只应出现 dev 配置的技能
-/simplify             # 命令应可被用户直接调用（模型不会自动调用）
+/feature              # 命令应可被用户直接调用（模型不会自动调用）
 ```
 
 ### 仓库验收

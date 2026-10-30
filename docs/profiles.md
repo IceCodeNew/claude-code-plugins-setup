@@ -11,9 +11,8 @@
 - `fp-check` 在 `Stop` 和 `SubagentStop` 上注册了 `matcher: "*"` 的 prompt hook。
   它每次结束都会发一次模型请求，检查 fp-check 的验证流程是否完整；即使当前
   对话与安全审查无关，也会先花一次调用。[插件源码](https://github.com/trailofbits/skills/tree/main/plugins/fp-check)
-- `double-shot-latte` 的 Stop hook 会在每次停止时调用模型判断是否继续。
 - `security-guidance`、`modern-python`、`gh-cli` 等也会注入 hooks 或 PATH shim。
-- 50 个插件的技能描述、MCP 工具、agent 描述都会进入系统和工具上下文。
+- 保留的 42 个插件的技能描述、MCP 工具、agent 描述都会进入对应角色的上下文。
 
 把这些东西按领域隔离后，路由会话只保留编排所需的最小上下文；专业会话只在被
 路由到时才付出对应成本。
@@ -60,13 +59,13 @@ claude --bg \
 |---|---|---|---|
 | `router` | 唯一用户入口：意图判断、分发、上下文管理、进度汇总；也负责 nmem/remember 记忆、ops 集成和 tmux 会话。 | 便宜快、上下文大 | nowledge-mem、remember、cloudflare、linear、telegram、claude-session-driver；searching-with-fff；fff |
 | `quick` | 快速问答、单文件小改、查位置、跑命令。 | easy | 0 插件；searching-with-fff；fff |
-| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、session-report、superpowers、security-guidance、claude-md-management、remember；9 技能；fff |
-| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、remember；searching-with-fff；fff |
-| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；searching-with-fff；fff |
-| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、searching-with-fff；fff |
+| `dev` | 通用多语言实现：功能、重构、调试、多文件修改、测试。 | hard | context7、github、typesafe、session-report、superpowers、security-guidance、claude-md-management、code-simplifier、commit-commands、claude-code-setup、remember；9 技能；fff |
+| `rust` | Rust 实现；安全审查交给 `review`。 | hard | rust-analyzer-lsp、remember；fast-rust、searching-with-fff；fff |
+| `go` | Go 实现：包、并发、错误、gopls、gofmt/vet/test；现代 Go 指南默认启用。 | hard | gopls-lsp、modern-go-guidelines、remember；modular-go、searching-with-fff；fff |
+| `python` | Python 实现：uv、ruff、ty/pyright、pytest、Pydantic；现代 Python 指南默认启用。 | hard | pyright-lsp、modern-python、pydantic、remember；friendly-python、piglet、searching-with-fff；fff |
 | `frontend` | 前端实现：现代 Web 平台、可访问性、性能、TypeScript、框架约定。 | hard | modern-web-guidance、typescript-lsp、remember；searching-with-fff；fff |
-| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 23 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、modern-go-guidelines、modern-python、pydantic、remember、13 个 Trail of Bits 审查插件（含 fp-check）；12 技能（含 fast-rust、piglet、modular-go、friendly-python、code-review-page）；fff |
-| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；8 技能；fff |
+| `review` | 代码审查、PR 审查、安全审计、误报验证，含 Rust 安全审查和语言特定检查。 | hard | 20 个：coderabbit、claude-security、github、entire、rust-analyzer、rust-review、remember、13 个 Trail of Bits 审查插件（含 fp-check）；8 技能（含 code-review-page）；fff |
+| `librarian` | Librarian：跨 GitHub/依赖/文档的只读代码与资料研究，写文档/图表。 | hard | firecrawl、github、context7、remember；7 技能；fff |
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | remember；think、karpathy-guidelines、searching-with-fff；fff |
 
 `dev`/`review`/`librarian` 的具体技能列表以 `profiles.json` 为准，这里不重复枚举，
@@ -79,28 +78,24 @@ claude --bg \
 
 完整清单以 [`build/profiles/profiles.json`](../build/profiles/profiles.json) 为准；
 [`claude-plugins.tsv`](../claude-plugins.tsv) 的最后一列是每个插件的归属。
-`-` 表示安装但不在任何配置启用。每个被移除项的维护日期、理由和卸载命令见
-[配置审计](audit.md)。
+删除的插件/技能不保留禁用状态：镜像不再安装，`profiles.json` 不再记录，
+`claude-plugins.tsv` 也不再列。当前删除项：
 
-刻意不启用的插件与技能：
+- 插件：`feature-dev`、`code-review`、`pr-review-toolkit`（明确支持）；`hookify`、
+  `skill-creator`（保留命令创建流程）；`ralph-loop`、`double-shot-latte`（Stop hook
+  成本大于收益）；`redis-development`（低频）。
+- 技能：`design`/`ui`、`diagram-design`、`review-code`、`deslop-*`、`minimax-*`、
+  `jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、`to-issues`、`to-prd`、
+  `grill-with-docs`、`triage`、`fireworks-tech-graph`、`japanese-tech-writing`、
+  `drawio-skill` 等；逐项理由见[配置审计](audit.md)。
 
-- `fp-check`：只在 `review`。
-- `double-shot-latte`、`ralph-loop`：和路由的续跑职责重复，且都带 hooks。
-- `code-simplifier`、`commit-commands`、`feature-dev`、`claude-code-setup`、`hookify`、
-  `skill-creator`、`code-review`、`pr-review-toolkit`：由命令或已有 review 技能替代。
-- 不再安装/不再启用：`design`/`ui`、`diagram-design`、`review-code`、`deslop-*`、
-  `minimax-*`、`jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、
-  `to-issues`、`to-prd`、`grill-with-docs`、`triage`、`fireworks-tech-graph` 等；
-  逐项日期和理由见[配置审计](audit.md)。
-- `redis-development`：保持全局禁用；需要时再归类。
-- `remember`、`claude-session-driver`、`security-guidance`、`modern-python`、
-  `modern-go-guidelines`、`pydantic`、`superpowers`、`claude-md-management`、
-  `modern-web-guidance`：已按反馈重新启用，位置见上表。
+纯 prompt 插件（`code-simplifier`、`commit-commands`、`claude-code-setup`）继续以插件
+形式安装在 dev：它们能自动更新，转换成命令没有 ROI。
 
 ## 命令：把内化能力做成一次点击
 
-顶级模型已经能做的事，不再装一个常驻插件。这些命令放在
-`~/.claude/commands/`，正文是精简后的流程和验证要求，用户输入 `/name` 即可调用。
+命令只用于角色分发和固定输出契约；纯 prompt 插件如果自动更新有价值，仍保留插件。
+这些命令放在 `~/.claude/commands/`，正文是精简的流程和验证要求，用户输入 `/name` 即可调用。
 它们都设置 `disable-model-invocation: true`，所以不会进入模型的技能列表；路由
 不再使用 `--disable-slash-commands`，因为 router 自己也要用 session-driver、remember
 和 nmem 的技能。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
@@ -108,21 +103,14 @@ claude --bg \
 | 命令 | 替代/用途 |
 |---|---|
 | `/plan` | 交给 `oracle`：决策、选项、验收标准、风险，不写实现。 |
-| `/clean-gone` | 清理远端已删除的本地分支和 worktree。 |
 | `/research` | 交给 `librarian`：跨仓库/依赖/文档搜索，带引用。 |
-| `/simplify` | 替代 `code-simplifier`：最小 diff、不改行为、跑测试。 |
-| `/commit` | 替代 `commit-commands` 的提交部分。 |
-| `/pr` | 替代 `commit-commands` 的 push/PR 部分；推送前需要确认。 |
 | `/feature` | 替代 `feature-dev`：探索、计划、实现、测试。 |
-| `/review` | 合并原 `/review` 与 `/review-pr`：接受 diff/path/PR，使用 review 配置里的 thermos/rust-review/fp-check 做多 agent 与置信度判断，命令只负责输出契约；需要 HTML 评审页时用 `code-review-page`。 |
-| `/security-check` | 替代 `security-guidance`：信任边界、注入、authz、SSRF、secrets、供应链。 |
+| `/review` | 合并原 `/review` 与 `/review-pr`：强制执行 `/security-check`、标准 review 检查和 `/simplify`；`rust-review` 仅 Rust 可选；`thermos`/`thermo-nuclear-*` 不自动执行，必须用户单独触发；需要 HTML 页面时用 `code-review-page`。 |
+| `/simplify` | 强制 review 阶段：最小 diff 简化，不改行为，最后重跑测试并复核 diff。 |
+| `/security-check` | review 的安全检查快捷入口：信任边界、注入、authz、SSRF、secrets、供应链；`security-guidance` 仍在 dev 做前置审查。 |
 | `/claude-md` | `claude-md-management` 的快捷入口；插件保留其质量标准和模板。 |
-| `/setup-audit` | 替代 `claude-code-setup` 和 `health`。 |
 | `/create-claude-hook` | 替代 `hookify` 的创建流程；强制优先确定性 hook。 |
 | `/create-claude-skill` | 替代 `skill-creator` 的创建流程。 |
-| `/python` | `python` 角色的快捷入口；`modern-python`、`pydantic` 插件保留，命令不替代它们。 |
-| `/go` | `go` 角色的快捷入口；`modern-go-guidelines` 插件保留。 |
-| `/pydantic` | `python` 角色的 Pydantic 快捷入口；插件保留。 |
 | `/ui` | 替代 stale 的 vendored `design` 技能（Waza 已改名为 `ui`）。 |
 
 命令是全局安装的：不同配置共享同一组快捷命令；配置差异体现在插件、技能、MCP、
@@ -234,7 +222,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 `ccr doctor` 会做这些检查：
 
-- 所有已安装插件都被归类，或者明确列在 `unassignedPlugins`。
+- 所有已安装插件都已归类；没有“安装但禁用”的中间状态。
 - 每个配置的插件都已安装，且 `--settings` 真的能启用它们（通过
   `claude --setting-sources "" --settings ... plugin list --json` 预检，不调用模型）。
 - `fp-check` 只在 `review`；router 启用 nmem、remember、ops 和 session-driver，但没有任何实现插件；fff 在所有角色启用。
@@ -255,7 +243,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 ```text
 /context     # 应看到该配置的插件技能和 hooks
-/mcp         # 只有该配置声明的 server（dev/rust/review 有 fff）
+/mcp         # 该配置声明的 server（所有角色都有 fff）
 /hooks       # 应有 block-rm、protected-branches、require-tmux、post-edit-check
 ```
 
@@ -286,8 +274,8 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 1. 安装新的 `ccr` 和 profile 源（镜像已包含；手动安装见
    [安装手册](../claude-plugins-setup.md#48-路由配置与-ccr)）。
 2. 运行 `ccr refresh --strict`。如果报告“installed plugin not classified”，把新插件
-   加进某个配置或 `unassignedPlugins`。
-3. 移除旧的 user-scope fff 注册（现在由 dev/rust/review 的 `--mcp-config` 提供）：
+   加进某个配置；不再保留“安装但全局禁用”的插件。
+3. 移除旧的 user-scope fff 注册（现在由所有角色的 `--mcp-config` 提供）：
 
    ```bash
    claude mcp remove --scope user fff
