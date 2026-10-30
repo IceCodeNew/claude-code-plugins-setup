@@ -258,18 +258,16 @@ claude plugin marketplace add entireio/skills
 claude plugin marketplace add trailofbits/skills
 
 for p in \
-    claude-code-setup claude-md-management claude-security cloudflare code-review \
-    code-simplifier coderabbit commit-commands context7 feature-dev firecrawl github \
-    gopls-lsp hookify linear modern-web-guidance pr-review-toolkit pyright-lsp \
-    ralph-loop redis-development remember rust-analyzer-lsp security-guidance \
-    session-report skill-creator superpowers telegram typescript-lsp
+    claude-code-setup claude-md-management claude-security cloudflare \
+    code-simplifier coderabbit commit-commands context7 firecrawl github gopls-lsp \
+    linear modern-web-guidance pyright-lsp remember rust-analyzer-lsp \
+    security-guidance session-report superpowers telegram typescript-lsp
 do
     claude plugin install "$p@claude-plugins-official" --scope user
 done
 claude plugin install nowledge-mem@nowledge-community --scope user
 claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
-claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
 
@@ -283,15 +281,8 @@ do
     claude plugin install "$p@trailofbits" --scope user
 done
 
-for p in redis-development modern-web-guidance; do
-    claude plugin disable "$p@claude-plugins-official" --scope user
-done
-
-# double-shot-latte 1.2.0 ships run-hook.cmd without a shebang, so Claude Code runs it under
-# /bin/sh, and dash rejects its ${BASH_SOURCE[0]} (https://github.com/obra/double-shot-latte/issues/37).
-# Once upstream fixes it the expression no longer matches; the smoke stage runs the hook under dash.
-sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
-    "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
+# modern-web-guidance is enabled per-profile (frontend), not for plain claude.
+claude plugin disable modern-web-guidance@claude-plugins-official --scope user
 
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
 # Install the retained skills from their upstream repositories instead of the
@@ -308,7 +299,6 @@ for s in \
     tw93/Waza/skills/learn \
     mattpocock/skills/skills/engineering/tdd \
     forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
-    agents365-ai/drawio-skill/skills/drawio-skill \
     PsiACE/skills/skills/fast-rust \
     PsiACE/skills/skills/friendly-python \
     PsiACE/skills/skills/modular-go \
@@ -583,8 +573,6 @@ paseo --version
 vim --version >/dev/null
 bwrap --version
 yq --version
-# Claude Code runs double-shot-latte's run-hook.cmd under /bin/sh, which is dash here
-echo '{}' | /bin/sh "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd claude-judge-continuation | jq -e '.decision == "approve"' >/dev/null
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
 EOF
 
