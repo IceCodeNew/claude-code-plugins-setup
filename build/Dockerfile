@@ -260,8 +260,9 @@ claude plugin marketplace add trailofbits/skills
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare \
     code-simplifier coderabbit commit-commands context7 firecrawl github gopls-lsp \
-    linear modern-web-guidance pyright-lsp remember rust-analyzer-lsp \
-    security-guidance session-report superpowers telegram typescript-lsp
+    hookify linear modern-web-guidance pyright-lsp redis-development remember \
+    rust-analyzer-lsp security-guidance session-report skill-creator superpowers \
+    telegram typescript-lsp
 do
     claude plugin install "$p@claude-plugins-official" --scope user
 done
@@ -281,8 +282,10 @@ do
     claude plugin install "$p@trailofbits" --scope user
 done
 
-# modern-web-guidance is enabled per-profile (frontend), not for plain claude.
-claude plugin disable modern-web-guidance@claude-plugins-official --scope user
+# These are installed but originally disabled for plain claude; profiles decide.
+for p in redis-development modern-web-guidance; do
+    claude plugin disable "$p@claude-plugins-official" --scope user
+done
 
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
 # Install the retained skills from their upstream repositories instead of the
@@ -313,7 +316,8 @@ for s in \
     cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
     ninehills/skills/tech-doc-style-chinese \
     openclaw/openclaw/.agents/skills/test-audit \
-    tommy0103/better-readme-skill/skills/better-readme
+    tommy0103/better-readme-skill/skills/better-readme \
+    https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
 do
     openskills install "$s" -g -y
 done

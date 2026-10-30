@@ -40,3 +40,6 @@ typesafe@typesafe-ai	0.5.7	user	true	dev
 typescript-lsp@claude-plugins-official	1.0.0	user	true	frontend
 variant-analysis@trailofbits	2.0.4	user	true	review
 vulnerability-triage-brocards@trailofbits	0.1.3	user	true	review
+hookify@claude-plugins-official	ad30d62cd52a	user	true	-
+redis-development@claude-plugins-official	1.4.0	user	false	-
+skill-creator@claude-plugins-official	ad30d62cd52a	user	true	-
