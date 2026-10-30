@@ -84,7 +84,10 @@
         "remember@claude-plugins-official",
         "superpowers@claude-plugins-official",
         "security-guidance@claude-plugins-official",
-        "claude-md-management@claude-plugins-official"
+        "claude-md-management@claude-plugins-official",
+        "code-simplifier@claude-plugins-official",
+        "commit-commands@claude-plugins-official",
+        "claude-code-setup@claude-plugins-official"
       ],
       "skills": [
         "tdd",
@@ -138,7 +141,8 @@
         "remember@claude-plugins-official"
       ],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "fast-rust"
       ],
       "mcp": [
         "fff"
@@ -186,10 +190,7 @@
         "vulnerability-triage-brocards@trailofbits",
         "rust-review@trailofbits",
         "rust-analyzer-lsp@claude-plugins-official",
-        "remember@claude-plugins-official",
-        "modern-go-guidelines@goland-claude-marketplace",
-        "modern-python@trailofbits",
-        "pydantic@pydantic-skills"
+        "remember@claude-plugins-official"
       ],
       "skills": [
         "thermos",
@@ -199,10 +200,6 @@
         "reclaim-code-entropy",
         "searching-with-fff",
         "ripwire*",
-        "fast-rust",
-        "piglet",
-        "modular-go",
-        "friendly-python",
         "code-review-page"
       ],
       "mcp": [
@@ -251,7 +248,6 @@
         "read",
         "write",
         "learn",
-        "drawio-skill",
         "tech-doc-style-chinese",
         "ux-writing",
         "better-readme",
@@ -306,7 +302,8 @@
         "modern-go-guidelines@goland-claude-marketplace"
       ],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "modular-go"
       ],
       "mcp": [
         "fff"
@@ -340,7 +337,8 @@
       ],
       "skills": [
         "friendly-python",
-        "searching-with-fff"
+        "searching-with-fff",
+        "piglet"
       ],
       "mcp": [
         "fff"
@@ -462,49 +460,8 @@
       ]
     }
   },
-  "unassignedPlugins": {
-    "double-shot-latte@superpowers-marketplace": "Its Stop hook runs a model call on every stop; the router already decides when to continue.",
-    "redis-development@claude-plugins-official": "Currently disabled; enable it explicitly in a profile if needed.",
-    "code-simplifier@claude-plugins-official": "Replaced by the /simplify command: a top model already knows how to simplify code; the command keeps the scope and verification rules.",
-    "commit-commands@claude-plugins-official": "Replaced by /commit and /pr: git workflow is prompt work, not a plugin capability.",
-    "feature-dev@claude-plugins-official": "Replaced by /feature: a top model can explore, plan, implement and test without a multi-agent plugin.",
-    "claude-code-setup@claude-plugins-official": "Replaced by /setup-audit: the audit checklist is small enough to keep as a command.",
-    "hookify@claude-plugins-official": "Replaced by /create-claude-hook: hook creation is a short recipe; the command avoids another always-on skill.",
-    "skill-creator@claude-plugins-official": "Replaced by /create-claude-skill: skill authoring is a focused prompt; the plugin was only used occasionally.",
-    "code-review@claude-plugins-official": "Replaced by /review: a top model performs the review; the review profile keeps the security-specific plugins.",
-    "pr-review-toolkit@claude-plugins-official": "Replaced by /review plus thermos/Trail of Bits: the specialized agent fan-out is not needed for routine PR review.",
-    "ralph-loop@claude-plugins-official": "The router owns continuation and progress loops; the plugin adds a Stop hook to every dev session."
-  },
-  "unassignedSkills": {
-    "skill-creator": "The skill-creator plugin provides the maintained copy in the dev profile.",
-    "design": "Vendored copy last updated 2026-06-27; upstream Waza renamed design to ui. Replaced by /ui to avoid carrying a stale copy of a UI prompt.",
-    "health": "Overlaps /setup-audit; active but redundant with the smaller command.",
-    "brainstorming-cn": "Last updated 2026-05-13; superseded by the active think skill.",
-    "pua": "A productivity-coaching gimmick, not an engineering capability; active but low value.",
-    "better-goal": "Goal-format guide overlaps think and the router prompt; not needed in every dev session.",
-    "review-code": "Last updated 2026-05-24 in an 86-star personal repo; replaced by /review and the review profile.",
-    "deslop-en": "Last updated 2026-05-24; the active write skill already removes AI-like prose.",
-    "deslop-zh": "Last updated 2026-05-24; the active write skill already removes AI-like prose.",
-    "gpt-image-gen": "Last updated 2026-05-31; depends on an external OpenAI key and is used ad hoc. Hidden by default; install/enable when needed.",
-    "minimax-docx": "Last updated 2026-03-23; niche Office skill. The librarian profile keeps the active read/write/diagram tools; use a document skill on demand.",
-    "minimax-pdf": "Last updated 2026-03-21; niche PDF skill; hidden by default.",
-    "minimax-xlsx": "Last updated 2026-03-22; niche spreadsheet skill; hidden by default.",
-    "pptx-generator": "Last updated 2026-03-21; niche slide skill; hidden by default.",
-    "bggg-creator-image2ppt": "Last updated 2026-05-05 in a 612-star repo; niche image-to-slides workflow.",
-    "jupyter-notebook": "Last updated 2026-02-02; niche notebook authoring; hidden by default.",
-    "jupytext": "Last updated 2026-05-13; niche notebook conversion; hidden by default.",
-    "xurl": "Last updated 2026-03-23 in a 359-star repo; niche X API workflow; hidden by default.",
-    "diagram-design": "Broken install layout: ninehills Common symlinks the parent directory, but the SKILL.md is nested one level deeper, so Claude Code does not load it. Upstream (cathrynlavery/diagram-design) is active; reinstall it from upstream or use drawio-skill.",
-    "ui": "Renamed upstream variant of design. Replaced by the /ui command; hidden if the ninehills scenario catches up and installs it under the new name.",
-    "improve-codebase-architecture": "Replaced by the oracle role and /plan; the ninehills vendored copy is no longer installed.",
-    "to-issues": "Planning/issue shaping is covered by oracle and /plan; the ninehills vendored copy is no longer installed.",
-    "to-prd": "PRD writing is covered by oracle/librarian; the ninehills vendored copy is no longer installed.",
-    "grill-with-docs": "Overlaps oracle planning and /plan; the ninehills vendored copy is no longer installed.",
-    "setup-matt-pocock-skills": "One-time setup for a bundle we no longer install; dropped with the ninehills Common bundle.",
-    "triage": "Review triage is covered by the review profile skills; the ninehills vendored copy is no longer installed.",
-    "fireworks-tech-graph": "Low-frequency diagram generator; drawio remains. Dropped with the ninehills Common bundle.",
-    "japanese-tech-writing": "Low-frequency writing skill; dropped with the unmaintained gist install."
-  },
+  "unassignedPlugins": {},
+  "unassignedSkills": {},
   "mcpServers": {
     "fff": {
       "type": "stdio",
