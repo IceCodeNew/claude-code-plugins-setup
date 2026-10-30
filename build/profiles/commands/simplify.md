@@ -1,15 +1,17 @@
 ---
-description: Simplify the current change without changing behavior
-argument-hint: "[path or diff range]"
+description: Simplify recently changed code without changing behavior
+argument-hint: "[files or diff range]"
 disable-model-invocation: true
 ---
-Simplify the code in $ARGUMENTS (or the current diff when no argument is given).
+Simplify the recently changed code in $ARGUMENTS (or the current diff).
 
-Work from the actual diff and the surrounding code. Look for duplicated logic,
-unnecessary abstraction, dead branches, over-general types, and names that do not
-match the behavior. Keep the public behavior and the existing tests intact.
+Preserve behavior exactly. Follow the repository's CLAUDE.md and existing style,
+not generic preferences. Reduce nesting and redundant abstraction; improve names;
+consolidate related logic; remove comments that only restate the code. Prefer
+explicit, readable code over clever one-liners. Avoid nested ternaries; use a
+switch or early returns for multiple conditions. Do not combine unrelated
+concerns, remove useful abstractions, or trade clarity for fewer lines.
 
-Make the smallest coherent edit. Do not reformat unrelated code, rename public
-APIs, or add dependencies. Run the narrowest test that proves the behavior, then
-report: what you removed or merged, why it is safe, the verification command, and
-anything you deliberately left alone.
+Read the diff first, make the smallest coherent edit, then run the relevant tests
+and typecheck. If the simplification would change behavior or public API, stop and
+report instead. Do not reformat untouched files.
