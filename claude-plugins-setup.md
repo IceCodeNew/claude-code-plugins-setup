@@ -266,26 +266,26 @@ done
 
 ### 3.1 插件归属
 
-插件仍然只安装一次（user scope），但不再默认全部启用。每个插件在
+插件只安装一次（user scope）。每个插件在
 [profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
 其他插件并启用自己的插件。44 个插件都有归属：42 个按角色启用，`skill-creator`、`redis-development` 保留原禁用状态。
 
-哪些插件仍保留、哪些插件删除了、哪些技能不再安装，以及各自的最后维护日期和
-卸载命令，见[配置审计](docs/audit.md)和[命令替代证据](docs/command-replacements.md)。
+插件与技能的维护状态、最后维护日期和卸载命令见[配置审计](docs/audit.md)和
+[命令替代证据](docs/command-replacements.md)。
 
 环境安装 44 个插件（42 启用、2 禁用）。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
-`enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
+`enabledPlugins` 和 `skillOverrides`。镜像只包含清单中的插件；未列出的插件不存在。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
 例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`。命令正文是流程和验证要求；它们是模型可调用的角色命令（例如 librarian 用
 `/research`，oracle 用 `/plan`，review 用 `/review` 和 `/security-check`），
-也可以由用户直接输入。router 不再使用 `--disable-slash-commands`，因为它也要用
+也可以由用户直接输入。router 需要使用 session-driver、remember 和 nmem 的技能，因此不启用 `--disable-slash-commands`。
 session-driver/remember/nmem 的技能；实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
 [build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
-同名但非 ccr 生成的文件会跳过并告警，不会覆盖你自己的命令。
+同名但非 ccr 生成的文件会跳过并告警，不会覆盖用户自定义命令。
 
-这不是简单的“按需 `/plugin` 开关”：`ccr` 启动子会话时用 `--setting-sources ""`
+这不是简单的「按需 `/plugin` 开关」：`ccr` 启动子会话时用 `--setting-sources ""`
 忽略用户 settings，再用 `--settings <profile>` 覆盖 `enabledPlugins`，所以专业配置的
 hooks 不会泄漏到路由或其他配置。`fp-check` 只在 `review` 配置启用，路由、`dev`、
 `rust` 等会话不会加载它的 `Stop` / `SubagentStop` prompt hook。
@@ -308,9 +308,9 @@ claude plugin list
 
 除下文明确固定的 fff 安装器和搜索技能外，技能通常跟随上游默认分支。保留的技能都从各自上游直装；ripwire 的技能用 ripwire 发布包自带的安装脚本；其余用 openskills 装到 `~/.claude/skills`（`-g` 为全局，`-y` 跳过交互选择）。ninehills 只保留其自有的 `tech-doc-style-chinese`。pydantic 和 modern-go-guidelines 以插件形式提供，已在第 3 节安装。
 
-Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，因此这里不再重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "你的任务"` 发现命令。
+Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https://github.com/cloudflare/skills) 维护平台技能，第 3 节的 `cloudflare@claude-plugins-official` 已从该仓库安装，包含 cloudflare、wrangler、agents-sdk 等技能，本节不重复安装。该插件只供 Claude Code 使用，不会通过镜像的 `~/.agents/skills` 软链接提供给 Codex。使用 cf 时先运行 `cf --help`、`cf cli search "任务"` 发现命令。
 
-### 4.1 上游直装（不再使用 ninehills Common）
+### 4.1 上游直装
 
 早期用 `ninehills/skills` 的 `skills-manager scenarios install Common` 整组安装 34 个
 技能。Common 是 vendored 副本集合：`design` 已在上游改名 `ui`；`diagram-design`
@@ -327,7 +327,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 | `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / python / python；review 不重复 |
 | `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
-Waza、tdd、karpathy-guidelines 不再从 ninehills 安装；ninehills 仅保留自有 `tech-doc-style-chinese`。更新方式改为 `openskills update`，不再需要克隆 ninehills 仓库或运行 `skills-manager`。
+`tw93/Waza` 以仓库为单位安装，包含该仓库全部 8 个技能；tdd、karpathy-guidelines 从各自上游安装；ninehills 只提供自有 `tech-doc-style-chinese`。更新使用 `openskills update`，不需要克隆 ninehills 仓库或运行 `skills-manager`。
 
 ### 4.2 ripwire 技能（官方 skills/install.sh）
 
@@ -348,11 +348,7 @@ ripwire 升级后技能列表可能变化，重新执行同一条命令即可：
 cd ~
 for s in \
   IceCodeNew/code-review-page-kit \
-  tw93/Waza/skills/think \
-  tw93/Waza/skills/hunt \
-  tw93/Waza/skills/read \
-  tw93/Waza/skills/write \
-  tw93/Waza/skills/learn \
+  tw93/Waza \
   mattpocock/skills/skills/engineering/tdd \
   forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
   PsiACE/skills/skills/fast-rust \
@@ -409,7 +405,7 @@ gh extension install github/gh-stack
   bash "$installer"
 )
 "$HOME/.local/bin/fff-mcp" --version
-# fff 不再注册到 user scope；4.8 的 ccr refresh 会把它写进每个角色和 router 的 mcp.json
+# fff 不注册到 user scope；4.8 的 ccr refresh 会把它写进每个角色和 router 的 mcp.json
 ```
 
 技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
@@ -442,7 +438,7 @@ Claude Code 没有像 skill description 那样按关键词或行为自动启用�
 | Tool Search | 按需加载完整工具定义 | 工具名称和 server instructions 仍会加载；自定义 API 地址默认回退到预加载，代理必须兼容 tool reference 才能开启 |
 | `MCP_DISCOVERY_CACHE=1`（可选） | 缓存发现结果，允许延迟连接到首次使用 | 主要减少启动/连接工作，不等于省掉工具定义上下文；不是关键词触发 |
 
-本仓库不再把 fff 注册到 user scope，只写进每个角色和 router 的 `mcp.json`。如果你在旧版本里注册过 user scope，先移除：
+fff 不注册到 user scope，只写进每个角色和 router 的 `mcp.json`。存在旧 user-scope 注册时，先移除：
 
 ```bash
 claude mcp remove --scope user fff
@@ -454,7 +450,7 @@ claude mcp remove --scope user fff
 
 当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
 
-也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先从 `profiles.json` 的 `mcpServers` / 各配置的 `mcp` 列表去掉 fff 并运行 `ccr refresh`，旧 user scope 再执行 `claude mcp remove --scope user fff`，最后用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖临时 checkout 做更新。移除时先从 `profiles.json` 的 `mcpServers` / 各配置的 `mcp` 列表去掉 fff 并运行 `ccr refresh`，旧 user scope 再执行 `claude mcp remove --scope user fff`，最后用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
 
 #### 持久化 home 的注册修复
 
@@ -578,7 +574,7 @@ push 需明确指定目标；不接受未知的变量展开、批量或通配 re
 允许合并 PR #123
 ```
 
-授权绑定会话、GitHub host、仓库和 PR，不跨会话复用；同一会话恢复或压缩不清除授权。`撤销合并 PR #123` 移除当前会话同编号 PR 的授权，不依赖网络；`撤销所有合并授权` 清除当前会话授权。引用、代码示例、工具结果和已标识自动消息不提供授权。
+授权绑定会话、GitHub host、仓库和 PR，不跨会话复用；同一会话在恢复或压缩后保留授权。`撤销合并 PR #123` 移除当前会话同编号 PR 的授权，不依赖网络；`撤销所有合并授权` 清除当前会话授权。引用、代码示例、工具结果和已标识自动消息不提供授权。
 
 拒绝只阻止本次操作。agent 应用普通消息申请授权，同时继续测试、文档及其他不依赖合并的工作，不使用阻塞式提问。授权不会执行合并，也不能取消已经向 GitHub 提交的自动合并或队列任务。
 
@@ -636,7 +632,7 @@ ccr doctor --strict
 hooks venv。
 
 模型档位用环境变量覆盖，默认 `CCR_ROUTER_MODEL=haiku`、`CCR_HARD_MODEL=opus`、
-`CCR_MEDIUM_MODEL=sonnet`、`CCR_EASY_MODEL=haiku`。路由要“便宜、快、上下文大”时，把它设成你的提供商里符合条件
+`CCR_MEDIUM_MODEL=sonnet`、`CCR_EASY_MODEL=haiku`。路由要「便宜、快、上下文大」时，把它设成提供商里符合条件
 的别名，然后重新 `ccr refresh`：
 
 ```bash
@@ -683,8 +679,8 @@ firecrawl login --browser
 cf auth login --no-browser
 
 # nowledge-mem 远程模式
-nmem config client set url "https://your-server"   # 换成你的服务器地址
-nmem config client set api-key "your-api-key"     # 换成你的 API key
+nmem config client set url "https://your-server"   # 换成服务器地址
+nmem config client set api-key "your-api-key"     # 换成 API key
 nmem status
 ```
 

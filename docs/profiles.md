@@ -1,6 +1,6 @@
 # 路由配置与专业配置
 
-这套 setup 不再把所有插件、技能和 hooks 都挂在同一个会话上。日常只进入一个
+这套 setup 把插件、技能和 hooks 按角色隔离。日常只进入一个
 **路由配置（router）**；它把任务分发给按领域拆开的子会话。每个子会话只加载自己
 那一套插件、技能、MCP 和 hooks。
 
@@ -23,7 +23,7 @@
 `CLAUDE_CONFIG_DIR`。原因：
 
 - 登录凭据、插件缓存、后台会话管理器和跨会话消息都在同一份配置里，不需要登录
-  多次，也不会出现“路由看不到子会话”的问题。
+  多次，也不会出现「路由看不到子会话」的问题。
 - 隔离通过**每次启动的 settings 覆盖**完成，而不是靠目录隔离。
 
 子会话的启动参数：
@@ -80,7 +80,7 @@ claude --bg \
 
 完整清单以 [`build/profiles/profiles.json`](../build/profiles/profiles.json) 为准；
 [`claude-plugins.tsv`](../claude-plugins.tsv) 的最后一列是每个插件的归属。
-删除的插件/技能直接移除；`skill-creator`、`redis-development` 保留安装和原本的
+镜像不包含以下项目；`skill-creator`、`redis-development` 保留安装和原本的
 禁用状态，`japanese-tech-writing` 保留在 librarian。`hookify` 在所有角色启用。
 
 - 删除插件：`feature-dev`、`code-review`、`pr-review-toolkit`；`ralph-loop`、
@@ -103,9 +103,8 @@ claude --bg \
 命令只用于角色分发和固定输出契约；纯 prompt 插件如果自动更新有价值，仍保留插件。
 这些命令放在 `~/.claude/commands/`，正文是精简的流程和验证要求，用户输入 `/name` 即可调用。
 这些是角色命令，模型在对应角色里可以调用（librarian 用 `/research`，oracle 用
-`/plan`，review 用 `/review` 和 `/security-check`），用户也可以直接输入。路由不再使用
-`--disable-slash-commands`，因为 router 自己也要用 session-driver、remember 和 nmem
-的技能。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
+`/plan`，review 用 `/review` 和 `/security-check`），用户也可以直接输入。router 需要
+session-driver、remember 和 nmem 的技能，因此不启用 `--disable-slash-commands`。路由的 prompt 和 `disallowedTools` 负责阻止它在 router 里执行实现命令。
 
 | 命令 | 替代/用途 |
 |---|---|
@@ -150,8 +149,8 @@ Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash
 | `CCR_MEDIUM_MODEL` | `sonnet` | medium 子会话（finder） |
 | `CCR_EASY_MODEL` | `haiku` | easy 子会话（librarian、quick） |
 
-默认值只是保守的官方别名。路由要“最便宜、最快、上下文最大”时，应把它设成你的
-提供商里符合这个条件的模型。例如网关把 `fable` 映射到 1M 上下文的便宜模型时：
+默认值只是保守的官方别名。路由需要「最便宜、最快、上下文最大」时，应选择提供商里
+符合这个条件的模型。例如网关把 `fable` 映射到 1M 上下文的便宜模型时：
 
 ```bash
 export CCR_ROUTER_MODEL=fable
@@ -189,8 +188,8 @@ ccr context <id> --replace -      # 在漂移或压缩后重写一份紧凑 ledg
 
 ### 进度汇总
 
-长任务由路由用 `CronCreate` 建一个 10 分钟左右的会话内 cron，提示固定为“运行
-`ccr summary --json`，只报告变化：完成、阻塞、下一步”。所有子会话结束后用
+长任务由路由用 `CronCreate` 建一个 10 分钟左右的会话内 cron，提示固定为「运行
+`ccr summary --json`，只报告变化：完成、阻塞、下一步」。所有子会话结束后用
 `CronDelete` 取消。长任务也可以让路由用 `SendMessage` 的 `notify_when_idle` 订阅
 完成通知，而不是轮询。
 
@@ -257,8 +256,8 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 - **插件 hooks**：由 `enabledPlugins` 控制；禁用插件的 hooks 不加载。fp-check 的
   Stop/SubagentStop 不会进入路由、dev、rust、go、python、frontend、librarian、oracle、finder。
-  `security-guidance` 的 hooks 只在 dev（按你的要求把安全检查前移）；`remember`/nmem
-  的 hooks 是记忆功能本身，按配置启用。
+  `security-guidance` 的 hooks 只在 dev，安全检查因此前移；`remember`/nmem 的 hooks
+  是记忆功能本身，按配置启用。
 - **个人技能**：`skillOverrides` 把未归属技能设为 `"off"`。插件自带的技能不受
   `skillOverrides` 影响，跟随插件开关。
 - **MCP**：子会话用 `--mcp-config` 添加 fff，插件自带的 MCP 随插件启用。router 用
@@ -279,7 +278,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 
 1. 安装新的 `ccr` 和 profile 源（镜像已包含；手动安装见
    [安装手册](../claude-plugins-setup.md#48-路由配置与-ccr)）。
-2. 运行 `ccr refresh --strict`。如果报告“installed plugin not classified”，把新插件
+2. 运行 `ccr refresh --strict`。如果报告「installed plugin not classified」，把新插件
    加进某个配置，或按原状态放进 `unassignedPlugins`。
 3. 移除旧的 user-scope fff 注册（现在由所有角色的 `--mcp-config` 提供）：
 
@@ -287,7 +286,7 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
    claude mcp remove --scope user fff
    ```
 
-4. 如果你有持久化 home，重新在容器里运行 `ccr refresh`；镜像启动脚本也会自动执行。
+4. 存在持久化 home 时，在容器里重新运行 `ccr refresh`；镜像启动脚本也会自动执行。
 5. 用 `ccr doctor --strict` 和 `ccr spawn --dry-run` 核对参数后再实际分发。
 
 旧的 user settings 仍然保留，便于回退；`ccr` 不会修改它（只会写
@@ -300,5 +299,5 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
 - 子会话会消耗独立的订阅额度；路由默认最多 3 个活跃子会话。
 - 后台会话需要 Claude Code 支持 `claude agents` / `--bg`（当前镜像 2.1.311+）。
 - 插件更新后运行 `ccr refresh`；`ccr` 不会自动更新插件版本。
-- 路由模型和子会话模型都依赖你的提供商实际提供的别名；用 `ccr doctor` 看
+- 路由模型和子会话模型都依赖提供商实际提供的别名；用 `ccr doctor` 看
   `model` 检查行的生效值。

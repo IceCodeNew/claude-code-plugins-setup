@@ -52,7 +52,7 @@ ccr summary         # 汇总各子会话进度
 | 审查页面 | `review` 角色启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，可生成块级 HTML 评审页、diff 注释、复杂度热点和英文实现提示；[说明](docs/profiles.md) |
 | 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能按配置用 `skillOverrides` 隐藏；前端角色默认使用 [oxc](https://oxc.rs/) 的 `oxlint`/`oxfmt` |
 | Claude 插件 | 只安装一次到 user scope，由各配置的 `enabledPlugins` 启用；[清单](claude-plugins.tsv)的最后一列是归属 |
-| fff MCP | 所有角色和 router 都通过 `--mcp-config` 加载；不再注册到 user scope；[作用域与搜索技能](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
+| fff MCP | 所有角色和 router 都通过 `--mcp-config` 加载；不注册到 user scope；[作用域与搜索技能](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
 | Entire | 通过 mise 安装 CLI 和官方插件，不自动启用会话记录；[启用与上传范围](claude-plugins-setup.md#45-entire-cli-与官方技能) |
 | 安全 hooks | 独立 Python hooks 限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；按配置注册，`ccr refresh` 尊重用户启停选择；[按需启停与跨 harness 使用](claude-plugins-setup.md#46-安全-hooks) |
 | 文件回收 | 安装 trash-cli；交互式 `rm` 仅提醒使用 `trash-put` 并返回失败，不把 `rm` 参数自动改写为回收操作 |

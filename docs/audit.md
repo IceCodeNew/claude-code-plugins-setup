@@ -3,7 +3,7 @@
 审计日期：2026-10-31。范围：`claude-plugins.tsv` 中的 44 个插件，以及
 `~/.claude/skills` 下的技能来源。方法：用 GitHub API 查源码仓库的默认分支最近
 提交、最近一次非批量提交、`archived` 状态；插件按目录查，外部服务按真实仓库查。
-批量 metadata/LICENSE 提交会掩盖最后修改时间，因此同时看“最后实质提交”。
+批量 metadata/LICENSE 提交会掩盖最后修改时间，因此同时看「最后实质提交」。
 
 结论：没有发现 archived 仓库。判断标准：
 
@@ -14,7 +14,7 @@
 
 命令替代的逐项证据、覆盖范围和丢失项见
 [命令替代插件的证据](command-replacements.md)。下线的插件/技能**直接删除**，镜像
-不再安装，`profiles.json` 和 `claude-plugins.tsv` 不再记录，不保留“安装但禁用”。
+不再安装，`profiles.json` 和 `claude-plugins.tsv` 不再记录，不保留「安装但禁用」。
 
 ## 一、删除的插件
 
@@ -49,13 +49,13 @@ ccr refresh --strict
 仍由插件维护；`code-simplifier` 与 `reclaim-code-entropy` 在 dev 的同一稳定阶段执行。
 `/commit`、`/pr`、`/clean-gone`、`/setup-audit` 已移除；review 不做简化。
 
-## 三、之前移除、现在明确保留的插件
+## 三、明确保留的插件
 
-这些项包含 prompt 之外的资料、hooks 或独立工具。按反馈保留：
+这些项包含 prompt 之外的资料、hooks 或独立工具，保留理由如下：
 
 | 插件 | 位置 | 保留理由 |
 |---|---|---|
-| `security-guidance` | dev | 11,756 行 Python hooks + tests，做 diff 级安全提示和 Stop 检查；不能由命令复制。按你的要求把检查前移到 dev。 |
+| `security-guidance` | dev | 11,756 行 Python hooks + tests，做 diff 级安全提示和 Stop 检查；不能由命令复制。安全检查因此前移到 dev。 |
 | `modern-go-guidelines` | go | Go 新版本特性/规范是版本化领域资料；review 不重复启用，避免占用审查上下文。 |
 | `modern-python` | python | Python 工具链/版本规范 + PATH shims；review 不重复启用。 |
 | `pydantic` | python | Pydantic v2 的版本差异/迁移细节是插件资料；review 不重复启用。 |
@@ -63,14 +63,14 @@ ccr refresh --strict
 | `remember` | router、长会话角色 | SessionStart/End hooks、Haiku 压缩、`/remember` handoff；是跨会话记忆，不是 ccr ledger 的替代。 |
 | `claude-session-driver` | router | `csd` CLI + tmux + 事件流 + handoff；`claude --bg` 不能提供随时 attach。 |
 | `claude-md-management` | dev | 179 行 skill + 3 个 references；不提供额外 ccr 命令。 |
-| `modern-web-guidance` | frontend | 现代 Web 平台资料；按你的要求保留在专门前端角色。 |
+| `modern-web-guidance` | frontend | 现代 Web 平台资料；保留在专门前端角色。 |
 
 `remember` 与 `ccr` ledger 的分工：remember 在会话边界做压缩历史并注入下一次
 SessionStart；ledger 是 router 在任务进行中同步维护、随 `ccr send` 发送的
-must-retain 包。只用 remember 时，恢复会话拿不到“这次任务必须保留的约束”这一份
+must-retain 包。只用 remember 时，恢复会话拿不到「当前任务必须保留的约束」这一份
 精确上下文；两者不是同一个东西。
 
-## 四、技能：直接上游，删除不再安装
+## 四、技能来源与安装范围
 
 `ninehills/skills` Common 已从 Dockerfile 移除，不再整组安装 34 个 vendored 技能。
 Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上游：
@@ -98,17 +98,17 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 `better-goal`、`skill-creator`（独立技能）、`xurl`。
 
 删除理由：可被角色/命令替代、低频/依赖外部 key、或旧 vendored/坏布局；不再保留
-单独的“禁用记录”。
+单独的「禁用记录」。
 
-## 五、为什么不全量卸载已删除项之外的东西
+## 五、安装范围与卸载边界
 
-- 你的要求是“环境可以全量安装，但不同配置预启用不同集合”。镜像安装 44 个插件（42 启用、2 禁用）；
+- 配置遵循「全量安装、按配置启用」。镜像安装 44 个插件（42 启用、2 禁用）；
   配置层只决定启用集合。
 - 删除项已经不在镜像里，不占上下文、不会被误启用。保留项仍然全量安装，便于临时
   启用、排障和切换角色。
 - 对确定不用的已删除插件，上面已经给出真正卸载命令；其余保留项无需卸载。
 
-## 六、持续发现
+## 六、配置检查
 
 `ccr doctor --strict` 检查：
 
