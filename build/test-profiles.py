@@ -269,7 +269,6 @@ class Profiles(unittest.TestCase):
             "double-shot-latte@superpowers-marketplace",
         }
         disabled = {
-            "hookify@claude-plugins-official",
             "skill-creator@claude-plugins-official",
             "redis-development@claude-plugins-official",
         }
@@ -280,6 +279,17 @@ class Profiles(unittest.TestCase):
             enabled = self.settings(name)["enabledPlugins"]
             for plugin in deleted | disabled:
                 self.assertFalse(enabled.get(plugin, False), (name, plugin))
+
+    def test_hookify_all_roles_and_gh_cli_dev_roles(self):
+        self.assertNotIn("session-report@claude-plugins-official", self.plugins)
+        for name in self.manifest["profiles"]:
+            enabled = self.settings(name)["enabledPlugins"]
+            self.assertTrue(enabled.get("hookify@claude-plugins-official"), name)
+        router = json.loads((self.state / "runtime/router-settings.json").read_text())
+        self.assertTrue(router["enabledPlugins"].get("hookify@claude-plugins-official"))
+        for name in ("dev", "rust", "go", "python", "frontend", "review"):
+            enabled = self.settings(name)["enabledPlugins"]
+            self.assertTrue(enabled.get("gh-cli@trailofbits"), name)
 
     def test_pure_prompt_plugins_stay_plugins(self):
         dev = self.settings("dev")["enabledPlugins"]
