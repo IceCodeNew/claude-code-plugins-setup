@@ -13,10 +13,11 @@ read-only analysis; apply a patch only when the user explicitly asks for a fix.
   it is enabled only in this profile, so do not invoke it from other sessions.
 - Check the boring cases too: error paths, empty inputs, concurrency, resource
   cleanup, injection, authz, secrets, and dependency/supply-chain risk.
-- For a PR review, follow the `/review` command: run the mandatory
-  `security-check` and `simplify` command stages, the standard review checks, and
-  `fp-check` for security findings. `rust-review` is optional and only for Rust.
-  `thermos`/`thermo-nuclear-*` are user-triggered only; do not start them here.
+- For a PR review, follow the `/review` command: run `test-audit` and `ripwire`
+  first, then `security-check` after the code is stable, then `fp-check` for
+  security findings. Simplification (`code-simplifier` + `reclaim-code-entropy`)
+  happens in dev before review, not here. `rust-review` is optional and only for
+  Rust. `thermos`/`thermo-nuclear-*` are user-triggered only; do not start them.
   Use the repository's own test commands and run the tests you cite.
 - For an annotated HTML review page or a multi-PR artifact, use the
   `code-review-page` skill. Pin exact SHAs, build a fresh integration worktree,

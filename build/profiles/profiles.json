@@ -197,7 +197,6 @@
         "thermo-nuclear-review",
         "thermo-nuclear-code-quality-review",
         "test-audit",
-        "reclaim-code-entropy",
         "searching-with-fff",
         "ripwire*",
         "code-review-page"
@@ -251,7 +250,8 @@
         "tech-doc-style-chinese",
         "ux-writing",
         "better-readme",
-        "searching-with-fff"
+        "searching-with-fff",
+        "japanese-tech-writing"
       ],
       "mcp": [
         "fff"
@@ -460,7 +460,11 @@
       ]
     }
   },
-  "unassignedPlugins": {},
+  "unassignedPlugins": {
+    "hookify@claude-plugins-official": "Originally disabled; kept installed with the hook-creation command available.",
+    "skill-creator@claude-plugins-official": "Originally disabled; kept installed with the skill-creation command available.",
+    "redis-development@claude-plugins-official": "Originally disabled; not enabled by any profile."
+  },
   "unassignedSkills": {},
   "mcpServers": {
     "fff": {
