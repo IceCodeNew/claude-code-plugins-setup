@@ -6,7 +6,7 @@
 |---|---|
 | 命令行工具 | mise；手动步骤通常跟随上游最新版本，镜像版本以 [Dockerfile](build/Dockerfile) 为准 |
 | Python 依赖 | uv 共享 venv；镜像的安全 hooks 复用系统 Python，仅补充 Bash 解析器，不依赖插件 venv |
-| Claude 插件 | user-scope marketplace 安装；[清单](claude-plugins.tsv)是状态快照，非版本锁文件 |
+| Claude 插件 | user-scope marketplace 安装一次，由 `ccr` 配置按需启用；[清单](claude-plugins.tsv)最后一列是归属，非版本锁文件 |
 | 独立技能 | 安装到 `~/.claude/skills`，镜像逐个链接到 Codex 使用的 `~/.agents/skills` |
 
 新机器按第 1 至第 6 节执行。已有配置需合并而非覆盖；代码块可能依赖前面的环境、当前目录和认证。从仓库引用脚本时，先定位到 checkout 根目录。
@@ -15,6 +15,7 @@
 - [工具及 Python 环境](#2-mise-配置)
 - [Claude 插件](#3-添加-marketplace-并安装插件)
 - [技能、MCP、Entire 与 hooks](#4-第三方技能)
+- [路由配置与 ccr](#48-路由配置与-ccr)
 - [认证](#5-登录与认证)与[验证](#6-验证)
 
 ---
@@ -243,9 +244,13 @@ done
 
 插件保留上游名称，通过完整 ID 中的 `@trailofbits` 区分来源，例如 `differential-review@trailofbits`，技能用 `/differential-review:differential-review` 调用。更新时运行 `claude plugin marketplace update trailofbits` 和 `claude plugin update <插件名>@trailofbits`；在 `/plugin` 的 Marketplaces 中为 `trailofbits` 开启 auto-update 后可自动更新，无需本地转换。
 
-`fp-check` 包含 Stop 和 SubagentStop prompt hooks，可能增加模型调用费用。`gh-cli` 的 hooks 会拦截 GitHub 网页抓取及 curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；认证见[登录与认证](#5-登录与认证)。会话结束时会删除该会话的 `gh-clones-<session_id>` 临时克隆目录，其中的修改也会丢失，需保留的工作应放在其他目录。
+`fp-check` 包含 Stop 和 SubagentStop prompt hooks，可能增加模型调用费用；本仓库只在
+`review` 配置启用它，路由和其他配置不会加载。`gh-cli` 的 hooks 会拦截 GitHub 网页抓取及
+curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；它只在 `review` 配置启用。
+认证见[登录与认证](#5-登录与认证)。会话结束时会删除该会话的 `gh-clones-<session_id>`
+临时克隆目录，其中的修改也会丢失，需保留的工作应放在其他目录。
 
-`modern-python` 在会话启动时添加 PATH shims，拦截直接运行的 python/pip/pipx/uv-pip 命令并提示改用 uv。CodeQL、Semgrep 等分析工具按任务需要另行安装，安装插件不会安装这些工具。
+`modern-python` 会添加 PATH shims，拦截直接运行的 python/pip/pipx/uv-pip 命令并提示改用 uv；本仓库已不再预启用它，`python` 角色用 `/python` 命令承载同样的约定。CodeQL、Semgrep 等分析工具按任务需要另行安装，安装插件不会安装这些工具。
 
 `double-shot-latte` 的 Stop hook 会调用 Claude 判断是否继续，默认使用 Haiku，可能增加调用费用。`claude-session-driver` 使用 tmux 启动 worker；首次启动前需从其 `driving-claude-code-sessions` 技能目录运行 `scripts/csd grant-consent`，其 worker 会跳过权限确认。安装并启用插件本身不会启动 worker。
 
@@ -269,6 +274,33 @@ for p in redis-development modern-web-guidance; do
   claude plugin disable "$p@claude-plugins-official" --scope user
 done
 ```
+
+### 3.1 插件归属
+
+插件仍然只安装一次（user scope），但不再默认全部启用。每个插件在
+[profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
+[4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
+其他插件并启用自己的插件。没有归属的插件（清单最后一列为 `-`）保持安装但不在任何
+配置启用。
+
+哪些插件被替换成命令、哪些技能已经失修，以及各自的最后维护日期和卸载命令，见
+[配置审计](docs/audit.md)。
+
+环境仍然全量安装。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
+`enabledPlugins` 和 `skillOverrides`。如果确定半年内不会再用某个插件/技能，再按审计
+文档的 P0/P1 顺序卸载。
+
+一些插件（简化、提交、评审、CLAUDE.md 审计等）被简化成 `~/.claude/commands/` 下的
+命令，例如 `/plan`、`/research`、`/simplify`、`/commit`、`/pr`、`/review`、`/security-check`。命令正文是
+流程和验证要求，设置 `disable-model-invocation: true`，不会进入模型上下文；路由用
+`--disable-slash-commands` 启动，命令只在子会话里可用。`ccr refresh` 会把
+[build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
+同名但非 ccr 生成的文件会跳过并告警，不会覆盖你自己的命令。
+
+这不是简单的“按需 `/plugin` 开关”：`ccr` 启动子会话时用 `--setting-sources ""`
+忽略用户 settings，再用 `--settings <profile>` 覆盖 `enabledPlugins`，所以专业配置的
+hooks 不会泄漏到路由或其他配置。`fp-check` 只在 `review` 配置启用，路由、`dev`、
+`rust` 等会话不会加载它的 `Stop` / `SubagentStop` prompt hook。
 
 清单中的版本列只供核对，下面命令不据此锁定版本。使用清单批量安装前，应先添加对应 marketplace：
 
@@ -313,7 +345,7 @@ python3 ~/git/ninehills-skills/skills-manager scenarios install Common
 
 ### 4.2 ripwire 技能（官方 skills/install.sh）
 
-mise 安装的 ripwire 压缩包里带有 `skills/` 目录和 `skills/install.sh`。脚本把每个 `ripwire-*` 技能软链接进 `~/.claude/skills`，链接目标是脚本所在的目录。通过 mise 的 `latest` 路径执行，链接就指向 `latest`，`mise upgrade` 之后仍然有效。`ripwire-opt-remarks` 只用于开发 ripwire 本身，脚本默认跳过。
+mise 安装的 ripwire 压缩包里带有 `skills/` 目录和 `skills/install.sh`。脚本把每个 `ripwire*` 技能软链接进 `~/.claude/skills`，链接目标是脚本所在的目录。通过 mise 的 `latest` 路径执行，链接就指向 `latest`，`mise upgrade` 之后仍然有效。`ripwire-opt-remarks` 只用于开发 ripwire 本身，脚本默认跳过。
 
 ```bash
 bash ~/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/install.sh
@@ -386,7 +418,7 @@ gh extension install github/gh-stack
   bash "$installer"
 )
 "$HOME/.local/bin/fff-mcp" --version
-claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
+# fff 不再注册到 user scope；4.8 的 ccr refresh 会把它写进 dev/rust/review 的 mcp.json
 ```
 
 技能与镜像均使用下面固定提交的安装步骤。镜像固定 `FFF_SKILL_REVISION=6c2e4675ffe7635e02f5d4f9c6b4793b4863b151`（已合入技能仓库 master），只复制通用子目录，不安装 Amp adapter。要手动复现镜像的技能版本：
@@ -404,7 +436,7 @@ claude mcp add --scope user --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
 )
 ```
 
-MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。在目标 worktree 中启动 Claude，新会话中用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。
+MCP 使用绝对二进制路径，所以不依赖 PATH。不要给服务传构建目录或某个固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根；工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|review|librarian` 在目标 worktree 里启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。路由、`quick` 和 `oracle` 不加载 fff；`dev`、`rust`、`go`、`python`、`review`、`librarian` 加载。
 
 技能 description 用于模型判断是否需要加载技能；正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些都是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
 
@@ -419,30 +451,34 @@ Claude Code 没有像 skill description 那样按关键词或行为自动启用�
 | Tool Search | 按需加载完整工具定义 | 工具名称和 server instructions 仍会加载；自定义 API 地址默认回退到预加载，代理必须兼容 tool reference 才能开启 |
 | `MCP_DISCOVERY_CACHE=1`（可选） | 缓存发现结果，允许延迟连接到首次使用 | 主要减少启动/连接工作，不等于省掉工具定义上下文；不是关键词触发 |
 
-默认按上面命令注册 user scope，适用于所有项目。如果只在一个项目使用，先移除已有 user 注册，再在目标项目执行：
+本仓库不再把 fff 注册到 user scope，只写进三个专业配置的 `mcp.json`。如果你在旧版本里注册过 user scope，先移除：
 
 ```bash
 claude mcp remove --scope user fff
-# 在目标项目中执行；私有 local scope
-claude mcp add --scope local --transport stdio fff -- "$HOME/.local/bin/fff-mcp"
-# 要与团队共享时，把上一条的 --scope local 换成 --scope project；不要两条都执行
+# 只想在单个项目使用 fff 时，改用项目 MCP 配置，不要改回 user scope
+# 可参考 build/profiles/profiles.json 的 mcpServers，把 fff 写进项目的 .mcp.json
 ```
 
 单次会话完全不加载已注册 MCP，可用 `claude --strict-mcp-config --mcp-config '{"mcpServers":{}}'`；这也会排除其他 MCP，不适合作为日常安装默认值。
 
 当前官方文档的 `ENABLE_TOOL_SEARCH` 未设置时默认延迟 MCP 定义，但有模型/代理兼容性回退；`auto` 按上下文占比阈值决定是否延迟，`true` 强制延迟，`false` 预加载。这里不修改它，避免影响其他 server。Claude Code v2.1.280+ 默认把每个工具 description 和每个 server instructions 各截到 2,048 字符；这不是全部 MCP 的总上下文上限。`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` 是全局设置，不在本方案中调整。详情见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
 
-也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先运行 `claude mcp remove --scope user fff`（按实际 scope 修改），再用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
+也可用 `openskills install IceCodeNew/searching-with-fff/searching-with-fff -g -y` 跟随默认分支，并用 `openskills update searching-with-fff` 更新。上面固定提交的安装应审查新提交后重新执行 checkout/安装步骤，不能依赖已删除的临时 checkout 做更新。移除时先从 `profiles.json` 的 `mcpServers` / 各配置的 `mcp` 列表去掉 fff 并运行 `ccr refresh`，旧 user scope 再执行 `claude mcp remove --scope user fff`，最后用 `openskills remove searching-with-fff`；二进制和 fff 缓存由用户核对路径及使用状态后另行清理。镜像通过重建更新；已有 `/home/nonroot` 卷会遮住新镜像内的配置和技能，需要在卷中执行相同安装/更新步骤。
 
 #### 持久化 home 的注册修复
 
-镜像在 `/usr/local/share/claude-dev/mcp.json` 声明 MCP 默认项，现有 `entrypoint.sh` 在启动时通过 `claude mcp add-json` 补齐缺失的 user-scope 注册。新增 MCP 可复用同一清单，不需要专用修复脚本。已有自定义注册、项目禁用记录和 `CLAUDE_CONFIG_DIR` 保持有效；损坏配置不会重置，入口脚本输出警告后仍提供 SSH。
+新镜像的 `/usr/local/share/claude-dev/mcp.json` 默认为空；fff 由 `ccr refresh` 写进
+`~/.local/state/cc-router/profiles/{dev,rust,review}/mcp.json`，启动子会话时通过
+`--mcp-config` 加载；插件自带的 MCP 仍随插件加载。持久化 home 里的旧 user-scope fff 不会自动删除，
+但 `ccr` 会忽略它；按上面的 `claude mcp remove --scope user fff` 清理即可。`entrypoint.sh`
+仍保留 `--init-mcp` 机制，供以后新增镜像级 MCP 默认项使用；损坏配置不会重置，入口脚本
+输出警告后仍提供 SSH。
 
-已有运行中的环境执行镜像入口脚本的初始化模式即可，不会启动 SSH：
+已有运行中的环境执行一次刷新即可，不会启动 SSH：
 
 ```bash
-/entrypoint.sh --init-mcp
-claude mcp get fff
+ccr refresh --strict
+jq '.mcpServers' ~/.local/state/cc-router/profiles/dev/mcp.json
 ```
 
 当前 checkout 的入口脚本也支持 `bash build/entrypoint.sh --init-mcp <defaults.json>`。默认清单不放在 home 内，因此不会被持久卷覆盖。Claude CLI 可能同时执行自身的配置迁移。
@@ -532,6 +568,11 @@ printf '%s\n' '{"tool_name":"Bash","tool_input":{"command":"rm -- example"},"per
 
 手动安装使用已安装 `bashlex` 的 Python 解释器，并将脚本路径换成 checkout 中的 `build/hooks/configure-claude.py`。可列出多个职责名称：`block-rm`、`protected-branches`、`require-tmux`、`post-edit-check`。选择保存在用户 `settings.json`；初始化不重新启用已关闭项，并保留其他用户 hooks。`/hooks` 可查看独立注册，修改后重启会话。
 
+`configure-claude.py` 只维护 plain `claude` 的 user-scope 注册。`ccr` 的专业配置不读取
+用户 settings；`ccr refresh` 会读取同样的 `CLAUDE_DEV_HOOK_*` 选择，把启用中的 hook
+写进每个配置的 `settings.json`。关闭 `post-edit-check` 后重新运行 `ccr refresh` 即可在
+所有配置生效。
+
 #### 分支保护与合并授权
 
 各模式禁止直接 push 到受保护分支，普通功能分支 push 和 force push 不额外限制。默认分支、GitHub 标记的受保护分支与[常见分支策略](build/hooks/protected-branches.json)共用同一判断；策略不默认匹配 `dev*` 或 `staging`，但它们如果是默认分支或已受 GitHub 保护，仍会拦截。
@@ -563,6 +604,59 @@ push 需明确指定目标；不接受未知的变量展开、批量或通配 re
 ### 4.7 重新加载
 
 技能使用 `/reload-skills` 重新加载；MCP 注册使用 `/mcp` 检查和重连，必要时重启。hooks 修改后检查 `/hooks` 并重启会话，不将技能重载当作 hook 或 MCP 重载。
+
+### 4.8 路由配置与 ccr
+
+`ccr` 是唯一日常入口。它读取 [profiles.json](build/profiles/profiles.json)，生成每个配置的
+settings、prompt、mcp 和 router agent，然后用后台会话分发任务。完整协议见
+[docs/profiles.md](docs/profiles.md)。
+
+镜像已包含 `/usr/local/bin/ccr` 和 `/opt/cc-router`，首次登录后直接运行：
+
+```bash
+ccr refresh --strict
+ccr doctor --strict
+ccr
+```
+
+进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/simplify`、
+`/commit`、`/review`、`/security-check`。路由本身关闭了 slash commands；如果用户在
+路由里点名一个命令，路由会把它分发给对应配置。命令清单和替代关系见
+[配置审计](docs/audit.md#一已从所有配置移除的插件)。
+
+手动安装时，把脚本和 profile 源放到用户目录。`ccr` 会依次查找
+`$CCR_SOURCE_DIR`、`/opt/cc-router`、`~/.local/share/cc-router`：
+
+```bash
+install -Dm755 build/ccr/ccr.py ~/.local/bin/ccr
+mkdir -p ~/.local/share/cc-router
+cp -R build/profiles/* ~/.local/share/cc-router/
+cp -R build/hooks ~/.local/share/cc-router/hooks
+export PATH="$HOME/.local/bin:$PATH"
+export CLAUDE_HOOK_PYTHON="$HOME/.local/share/claude-hooks-venv/bin/python"
+export CCR_HOOKS_DIR="$HOME/.local/share/cc-router/hooks"
+ccr refresh --strict
+ccr doctor --strict
+```
+
+把两条 `export` 加进 `~/.bashrc`，否则新开的 shell 在自动 refresh 时会回退到
+系统 Python，找不到 `bashlex`。`CLAUDE_HOOK_PYTHON` 指向[4.6](#46-安全-hooks)创建的
+hooks venv。
+
+模型档位用环境变量覆盖，默认 `CCR_ROUTER_MODEL=haiku`、`CCR_HARD_MODEL=opus`、
+`CCR_EASY_MODEL=haiku`。路由要“便宜、快、上下文大”时，把它设成你的提供商里符合条件
+的别名，然后重新 `ccr refresh`：
+
+```bash
+export CCR_ROUTER_MODEL=fable   # 例：网关把 fable 映射到 1M 上下文的便宜模型
+export CCR_HARD_MODEL=opus
+export CCR_EASY_MODEL=haiku
+ccr refresh
+```
+
+升级插件或技能后重新运行 `ccr refresh`；持久化 home 的启动脚本也会自动执行。旧的
+user-scope fff 按 4.4 移除。`ccr` 不修改用户 `settings.json`，只写
+`~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。
 
 ---
 
@@ -637,19 +731,31 @@ cf auth whoami              # 登录后核对身份
 nmem status
 openskills list
 "$HOME/.local/bin/fff-mcp" --version
-claude mcp get fff
+jq '.mcpServers' ~/.local/state/cc-router/profiles/dev/mcp.json
+ccr profiles
+ccr doctor --strict
 test -r ~/.claude/skills/searching-with-fff/SKILL.md
 test -r ~/.agents/skills/searching-with-fff/SKILL.md
 gh stack --help | head -1
 ```
 
-启动 claude 之后：
+启动路由 `ccr` 之后：
 
 ```text
-/mcp                  # fff 及已完成认证的其他 server 应显示 connected
-/remember:doctor      # remember 插件自检
-/plugin               # 插件和启用状态
-/skills               # 技能列表，第 4 节装的技能应在其中
+/mcp                  # 路由应为空；fff 只在 dev/rust/review 子会话
+/hooks                # 只应看到路由的 UserPromptSubmit 关键词 hint
+/plugin               # 所有 marketplace 插件应为 disabled
+/skills               # 不应出现专业配置的技能
+```
+
+用 `ccr spawn --profile dev --tier easy --name verify --prompt-file -` 派一个验证子会话，
+attach 后检查：
+
+```text
+/mcp                  # dev 配置应看到 fff connected
+/hooks                # block-rm、protected-branches、require-tmux、post-edit-check
+/skills               # 只应出现 dev 配置的技能
+/simplify             # 命令应可被用户直接调用（模型不会自动调用）
 ```
 
 ### 仓库验收
