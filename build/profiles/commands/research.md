@@ -1,7 +1,6 @@
 ---
 description: Research remote code, dependencies, or docs
 argument-hint: "<question, repository, or library>"
-disable-model-invocation: true
 ---
 Research: $ARGUMENTS
 

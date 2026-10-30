@@ -469,7 +469,8 @@
       "effort": "low",
       "plugins": [],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "ripwire*"
       ],
       "mcp": [
         "fff"

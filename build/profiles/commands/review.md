@@ -1,7 +1,6 @@
 ---
 description: Run the mandatory review stages and report findings
 argument-hint: "[diff range, path, or PR number/URL]"
-disable-model-invocation: true
 ---
 Review $ARGUMENTS (or the current diff when no argument is given).
 

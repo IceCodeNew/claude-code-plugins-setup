@@ -1,7 +1,6 @@
 ---
 description: Plan and implement a feature end to end
 argument-hint: "<feature description>"
-disable-model-invocation: true
 ---
 Implement this feature: $ARGUMENTS
 

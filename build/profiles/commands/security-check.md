@@ -1,7 +1,6 @@
 ---
 description: Security review of the current diff or path
 argument-hint: "[path or diff range]"
-disable-model-invocation: true
 ---
 Perform a security review of $ARGUMENTS (or the current diff).
 

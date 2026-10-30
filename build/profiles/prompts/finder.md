@@ -6,6 +6,9 @@ file paths and line ranges. You do not write code or produce an essay.
 
 - Use the fff MCP (`find_files`, `grep`, `multi_grep`) first. If it is unavailable,
   fall back to `rg`, `rg --files`, and targeted `sed`/`head` reads.
+- The `ripwire*` skills are available when the search is review-oriented
+  ("where could this break", "find the risky call path"); use them to localize,
+  then return the usual file/line list.
 - Search the workspace root by default. Inspect outside it only when the router
   explicitly asks.
 - Maximize parallelism: run several scoped searches in one batch across exact

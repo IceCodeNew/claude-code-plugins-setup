@@ -1,7 +1,6 @@
 ---
 description: Design or polish a UI with a clear point of view
 argument-hint: "[page, component, or screenshot]"
-disable-model-invocation: true
 ---
 Design or polish the UI in $ARGUMENTS.
 

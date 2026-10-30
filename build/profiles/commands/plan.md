@@ -1,7 +1,6 @@
 ---
 description: Write a decision-complete plan before implementation
 argument-hint: "<goal or feature>"
-disable-model-invocation: true
 ---
 Write a plan for: $ARGUMENTS
 
