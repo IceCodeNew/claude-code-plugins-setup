@@ -280,6 +280,18 @@ class Profiles(unittest.TestCase):
             for plugin in deleted | disabled:
                 self.assertFalse(enabled.get(plugin, False), (name, plugin))
 
+    def test_waza_skills_are_fully_installed_and_ui_has_no_command(self):
+        dockerfile = (HOOKS.parent / "Dockerfile").read_text() if (HOOKS.parent / "Dockerfile").is_file() else ""
+        if not dockerfile:
+            dockerfile = (SOURCE.parent.parent / "build/Dockerfile").read_text() if (SOURCE.parent.parent / "build/Dockerfile").is_file() else ""
+        if dockerfile:
+            for skill in ("check", "health", "hunt", "learn", "read", "think", "ui", "write"):
+                self.assertIn(f"tw93/Waza/skills/{skill}", dockerfile)
+        self.assertIn("ui", self.manifest["profiles"]["frontend"]["skills"])
+        self.assertIn("check", self.manifest["profiles"]["review"]["skills"])
+        self.assertIn("health", self.manifest["profiles"]["dev"]["skills"])
+        self.assertFalse((self.config / "commands/ui.md").exists())
+
     def test_hookify_all_roles_and_gh_cli_dev_roles(self):
         self.assertNotIn("session-report@claude-plugins-official", self.plugins)
         for name in self.manifest["profiles"]:
