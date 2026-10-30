@@ -24,7 +24,8 @@
       "cloudflare@claude-plugins-official",
       "linear@claude-plugins-official",
       "telegram@claude-plugins-official",
-      "claude-session-driver@superpowers-marketplace"
+      "claude-session-driver@superpowers-marketplace",
+      "hookify@claude-plugins-official"
     ],
     "skills": [
       "searching-with-fff"
@@ -40,7 +41,9 @@
       "tier": "easy",
       "permissionMode": "acceptEdits",
       "effort": "low",
-      "plugins": [],
+      "plugins": [
+        "hookify@claude-plugins-official"
+      ],
       "skills": [
         "searching-with-fff"
       ],
@@ -82,14 +85,15 @@
         "context7@claude-plugins-official",
         "github@claude-plugins-official",
         "typesafe@typesafe-ai",
-        "session-report@claude-plugins-official",
         "remember@claude-plugins-official",
         "superpowers@claude-plugins-official",
         "security-guidance@claude-plugins-official",
         "claude-md-management@claude-plugins-official",
         "code-simplifier@claude-plugins-official",
         "commit-commands@claude-plugins-official",
-        "claude-code-setup@claude-plugins-official"
+        "claude-code-setup@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
       ],
       "skills": [
         "tdd",
@@ -140,7 +144,9 @@
       "effort": "high",
       "plugins": [
         "rust-analyzer-lsp@claude-plugins-official",
-        "remember@claude-plugins-official"
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
       ],
       "skills": [
         "searching-with-fff",
@@ -192,7 +198,8 @@
         "vulnerability-triage-brocards@trailofbits",
         "rust-review@trailofbits",
         "rust-analyzer-lsp@claude-plugins-official",
-        "remember@claude-plugins-official"
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
       ],
       "skills": [
         "thermos",
@@ -243,7 +250,8 @@
         "firecrawl@claude-plugins-official",
         "github@claude-plugins-official",
         "context7@claude-plugins-official",
-        "remember@claude-plugins-official"
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
       ],
       "skills": [
         "read",
@@ -301,7 +309,9 @@
       "plugins": [
         "gopls-lsp@claude-plugins-official",
         "remember@claude-plugins-official",
-        "modern-go-guidelines@goland-claude-marketplace"
+        "modern-go-guidelines@goland-claude-marketplace",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
       ],
       "skills": [
         "searching-with-fff",
@@ -335,7 +345,9 @@
         "pyright-lsp@claude-plugins-official",
         "remember@claude-plugins-official",
         "modern-python@trailofbits",
-        "pydantic@pydantic-skills"
+        "pydantic@pydantic-skills",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
       ],
       "skills": [
         "friendly-python",
@@ -367,7 +379,8 @@
       "permissionMode": "plan",
       "effort": "high",
       "plugins": [
-        "remember@claude-plugins-official"
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
       ],
       "skills": [
         "think",
@@ -422,7 +435,9 @@
       "plugins": [
         "modern-web-guidance@claude-plugins-official",
         "typescript-lsp@claude-plugins-official",
-        "remember@claude-plugins-official"
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
       ],
       "skills": [
         "searching-with-fff"
@@ -467,7 +482,9 @@
       "tier": "medium",
       "permissionMode": "plan",
       "effort": "low",
-      "plugins": [],
+      "plugins": [
+        "hookify@claude-plugins-official"
+      ],
       "skills": [
         "searching-with-fff",
         "ripwire*"
@@ -511,7 +528,6 @@
     }
   },
   "unassignedPlugins": {
-    "hookify@claude-plugins-official": "Originally disabled; kept installed with the hook-creation command available.",
     "skill-creator@claude-plugins-official": "Originally disabled; kept installed with the skill-creation command available.",
     "redis-development@claude-plugins-official": "Originally disabled; not enabled by any profile."
   },

@@ -261,8 +261,8 @@ for p in \
     claude-code-setup claude-md-management claude-security cloudflare \
     code-simplifier coderabbit commit-commands context7 firecrawl github gopls-lsp \
     hookify linear modern-web-guidance pyright-lsp redis-development remember \
-    rust-analyzer-lsp security-guidance session-report skill-creator superpowers \
-    telegram typescript-lsp
+    rust-analyzer-lsp security-guidance skill-creator superpowers telegram \
+    typescript-lsp
 do
     claude plugin install "$p@claude-plugins-official" --scope user
 done
