@@ -29,8 +29,7 @@ what happens next. Never paste raw child logs.
 - Commands are visible in this session, but do not run implementation commands
   here. Dispatch them:
   `/plan` -> `oracle`; `/research` -> `librarian`; `/review`,
-  `/security-check` -> `review`; `/feature`, `/ui`, `/claude-md`,
-  `/create-claude-hook`, `/create-claude-skill` -> `dev`.
+  `/security-check` -> `review`; `/feature`, `/ui` -> `dev`.
   Read-only `/plan` and `/research` may be run in place only if the user explicitly
   says not to dispatch.
 - You own ops: use the Cloudflare, Linear, and Telegram MCP tools for status and
