@@ -60,7 +60,7 @@ ccr refresh --strict
 | `superpowers` | dev | 大型技能/方法论库；router 吸收 feature-dev 的编排职责。 |
 | `remember` | router、长会话角色 | SessionStart/End hooks、Haiku 压缩、`/remember` handoff；是跨会话记忆，不是 ccr ledger 的替代。 |
 | `claude-session-driver` | router | `csd` CLI + tmux + 事件流 + handoff；`claude --bg` 不能提供随时 attach。 |
-| `claude-md-management` | dev | 179 行 skill + 3 个 references；`/claude-md` 只是入口。 |
+| `claude-md-management` | dev | 179 行 skill + 3 个 references；不提供额外 ccr 命令。 |
 | `modern-web-guidance` | frontend | 现代 Web 平台资料；按你的要求保留在专门前端角色。 |
 
 `remember` 与 `ccr` ledger 的分工：remember 在会话边界做压缩历史并注入下一次

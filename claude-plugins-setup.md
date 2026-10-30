@@ -278,8 +278,7 @@ done
 `enabledPlugins` 和 `skillOverrides`。删除项已从镜像移除，不再保留“安装但禁用”状态。
 
 评审、计划、研究、hook/skill 创建等流程被做成 `~/.claude/commands/` 下的命令，
-例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、
-`/create-claude-hook`。命令正文是流程和验证要求，设置
+例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`、`/ui`。命令正文是流程和验证要求，设置
 `disable-model-invocation: true`，不会进入模型上下文。router 不再使用
 `--disable-slash-commands`，因为它也要用 session-driver/remember/nmem 的技能；
 实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
@@ -612,8 +611,7 @@ ccr
 ```
 
 进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/plan`、
-`/research`、`/feature`、`/review`、`/security-check`、
-`/create-claude-hook`。
+`/research`、`/feature`、`/review`、`/security-check`、`/ui`。
 路由保留命令可见，但 prompt 要求实现类命令分发给对应配置，只有只读的 `/plan`、
 `/research` 可按用户明确要求原地执行。命令清单见
 [配置与命令](docs/profiles.md#命令把内化能力做成一次点击)。

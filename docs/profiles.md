@@ -110,9 +110,6 @@ claude --bg \
 | `/feature` | 替代 `feature-dev`：探索、计划、实现、测试。 |
 | `/review` | 合并原 `/review` 与 `/review-pr`：先跑 `test-audit`/`ripwire` 标准检查，再在代码稳定后跑 `/security-check`，最后用 `fp-check` 复核安全发现；`rust-review` 仅 Rust 可选；`thermos`/`thermo-nuclear-*` 不自动执行，必须用户单独触发；需要 HTML 页面时用 `code-review-page`。 |
 | `/security-check` | review 的安全检查快捷入口：信任边界、注入、authz、SSRF、secrets、供应链；`security-guidance` 仍在 dev 做前置审查。 |
-| `/claude-md` | `claude-md-management` 的快捷入口；插件保留其质量标准和模板。 |
-| `/create-claude-hook` | 替代 `hookify` 的创建流程；强制优先确定性 hook。 |
-| `/create-claude-skill` | 替代 `skill-creator` 的创建流程。 |
 | `/ui` | 替代 stale 的 vendored `design` 技能（Waza 已改名为 `ui`）。 |
 
 命令是全局安装的：不同配置共享同一组快捷命令；配置差异体现在插件、技能、MCP、
