@@ -104,7 +104,8 @@
         "worktree-pr",
         "gh-stack",
         "reclaim-code-entropy",
-        "searching-with-fff"
+        "searching-with-fff",
+        "health"
       ],
       "mcp": [
         "fff"
@@ -208,7 +209,8 @@
         "test-audit",
         "searching-with-fff",
         "ripwire*",
-        "code-review-page"
+        "code-review-page",
+        "check"
       ],
       "mcp": [
         "fff"
@@ -440,7 +442,8 @@
         "gh-cli@trailofbits"
       ],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "ui"
       ],
       "mcp": [
         "fff"

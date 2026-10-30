@@ -295,11 +295,14 @@ bash "${HOME}/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/
 
 for s in \
     IceCodeNew/code-review-page-kit \
-    tw93/Waza/skills/think \
+    tw93/Waza/skills/check \
+    tw93/Waza/skills/health \
     tw93/Waza/skills/hunt \
-    tw93/Waza/skills/read \
-    tw93/Waza/skills/write \
     tw93/Waza/skills/learn \
+    tw93/Waza/skills/read \
+    tw93/Waza/skills/think \
+    tw93/Waza/skills/ui \
+    tw93/Waza/skills/write \
     mattpocock/skills/skills/engineering/tdd \
     forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
     PsiACE/skills/skills/fast-rust \
