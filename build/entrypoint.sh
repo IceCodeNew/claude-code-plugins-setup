@@ -30,6 +30,10 @@ if ! init_mcp /usr/local/share/claude-dev/mcp.json; then
 fi
 
 /usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py
+# Regenerate ccr profile settings after plugin/skill updates in a persisted home.
+if ! ccr refresh; then
+    echo 'Warning: ccr profile refresh failed; run `ccr refresh --strict` and `ccr doctor`.' >&2
+fi
 
 CRONTAB_PATH="${CRONTAB_PATH:-/home/nonroot/crontab}"
 touch "${CRONTAB_PATH}"

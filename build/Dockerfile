@@ -475,8 +475,14 @@ COPY --link --parents --from=fff-skill \
     /./home/nonroot/.agents/skills/searching-with-fff \
     /
 COPY --link --chmod=755 build/entrypoint.sh /
+# ccr profiles are generated from the manifest at build time and refreshed on
+# startup, so a persisted home can pick up new plugins and skills.
+COPY --link build/profiles/ /opt/cc-router/
+COPY --link --chmod=755 build/ccr/ccr.py /usr/local/bin/ccr
+# No user-scope MCP defaults: fff is loaded by the dev/rust/review profiles through
+# --mcp-config, so the router and unrelated sessions do not inherit it.
 COPY --link <<'MCP' /usr/local/share/claude-dev/mcp.json
-{"mcpServers":{"fff":{"type":"stdio","command":"/home/nonroot/.local/bin/fff-mcp"}}}
+{"mcpServers":{}}
 MCP
 ENV PATH="${HOME}/.local/bin:${PATH}"
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
@@ -494,6 +500,7 @@ CONFIG
 mise reshim
 /usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py
 /entrypoint.sh --init-mcp
+/usr/local/bin/ccr refresh --strict
 cat >> "${HOME}/.bashrc" <<'ALIASES'
 alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'
 ALIASES
@@ -506,7 +513,7 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/test-safety-hooks.py build/entrypoint.sh /tmp/
+COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/test-safety-hooks.py build/test-profiles.py build/entrypoint.sh /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
@@ -531,6 +538,16 @@ CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" py
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
 python3 -B /tmp/test-mcp-bootstrap.py
+python3 -B /tmp/test-profiles.py
+ccr doctor --strict
+jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
+jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
+jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+jq -e '.enabledPlugins["nowledge-mem@nowledge-community"] == true and .enabledPlugins["cloudflare@claude-plugins-official"] == true and .enabledPlugins["linear@claude-plugins-official"] == true and .enabledPlugins["telegram@claude-plugins-official"] == true and .enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.deniedMcpServers == [{"serverName":"fff"}]' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.enabledPlugins["rust-review@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
+jq -e '.enabledPlugins["rust-review@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+test -r "${HOME}/.claude/agents/ccr-router.md"
 python3 -B /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
