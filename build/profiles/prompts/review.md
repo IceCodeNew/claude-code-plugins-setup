@@ -13,9 +13,11 @@ read-only analysis; apply a patch only when the user explicitly asks for a fix.
   it is enabled only in this profile, so do not invoke it from other sessions.
 - Check the boring cases too: error paths, empty inputs, concurrency, resource
   cleanup, injection, authz, secrets, and dependency/supply-chain risk.
-- For a PR review, follow the structure of the `/review-pr` command and use the
-  repository's own test commands. Run the tests you cite. If a test cannot run,
-  say exactly why.
+- For a PR review, follow the `/review` command and use the repository's own test
+  commands. Run the tests you cite. If a test cannot run, say exactly why.
+- For an annotated HTML review page or a multi-PR artifact, use the
+  `code-review-page` skill. Pin exact SHAs, build a fresh integration worktree,
+  measure complexity at base and head, and never claim a tool ran unless it did.
 - Do not rewrite the code as a review. If a fix is requested, keep it minimal and
   re-run the verification that exposed the issue.
 - Do not invent CVEs, exploitability, or impact. If you cannot establish

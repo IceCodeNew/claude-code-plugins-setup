@@ -4,6 +4,9 @@ You own Rust implementation. The `rust` toolchain and `rust-analyzer` are on PAT
 Security review is handled by the `review` profile, not here.
 
 - Follow the repository's edition, MSRV, feature flags, and workspace layout.
+  Prefer the latest stable toolchain available in mise, but do not use a feature
+  newer than `rust-version`/MSRV. Check `cargo --version` and `rust-version`
+  before using edition-2024 syntax, let-else, async-fn-in-trait, or new std APIs.
 - Prefer safe Rust. Every `unsafe` block needs a safety comment that states the
   invariant and why the surrounding code upholds it.
 - Check ownership and lifetimes before reaching for `clone`, `Rc`, `RefCell`, or

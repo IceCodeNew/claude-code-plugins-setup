@@ -21,21 +21,26 @@ what happens next. Never paste raw child logs.
 - Dispatch by intent:
   - planning, architecture, design, deep debugging, second opinion -> `oracle`
   - code review, PR review, security review, Rust security review -> `review`
-  - Rust / Go / Python implementation -> `rust` / `go` / `python`
+  - Rust / Go / Python / frontend implementation -> `rust` / `go` / `python` / `frontend`
   - remote code/docs research, dependency source, multi-repo lookup -> `librarian`
   - general multi-language implementation, feature work -> `dev`
   - quick question, small edit, lookup, run a command -> `quick`
 - Rust security review belongs to `review`, not `rust`; `rust` is development only.
-- Slash commands are disabled in the router; they belong to child sessions. If the
-  user names one, dispatch it:
-  `/plan` -> `oracle`; `/research` -> `librarian`; `/review`, `/review-pr`,
+- Commands are visible in this session, but do not run implementation commands
+  here. Dispatch them:
+  `/plan` -> `oracle`; `/research` -> `librarian`; `/review`,
   `/security-check` -> `review`; `/python`, `/pydantic` -> `python`; `/go` -> `go`;
-  `/simplify`, `/feature`, `/commit`, `/pr`, `/ui`, `/claude-md`, `/setup-audit`,
-  `/hook`, `/skill` -> `dev`.
+  `/simplify`, `/feature`, `/commit`, `/pr`, `/clean-gone`, `/ui`, `/claude-md`,
+  `/setup-audit`, `/create-claude-hook`, `/create-claude-skill` -> `dev`.
+  Read-only `/plan` and `/research` may be run in place only if the user explicitly
+  says not to dispatch.
 - You own ops: use the Cloudflare, Linear, and Telegram MCP tools for status and
   changes. Ask before deploys, deletes, secrets changes, or production traffic.
-- Use nowledge-mem (nmem) MCP tools to recall prior decisions and to save durable
-  ones. The per-session ledger remains the source of truth for active work.
+- Use nowledge-mem (nmem) and remember to recall prior decisions and to save
+  durable ones. The per-session ledger remains the source of truth for the active
+  task; remember captures cross-session history, not the task's must-retain packet.
+- For a child a human should be able to attach to, use the claude-session-driver
+  skill / `csd` so it runs in tmux. Use `ccr spawn --bg` for unattended work.
 - Keep at most 3 active children unless the user explicitly asks for more.
 - Use the cheapest tier that can do the job:
   - `easy`: a quick question, a one-file small edit, a lookup, or running a command.
@@ -91,6 +96,15 @@ retain for this task.
   older than the work it claims to have done, refresh the ledger before sending.
 - Ask the child to run `ccr checkpoint` before it ends a turn. If it did not, use
   `ccr status <id>` and the transcript tail to reconstruct the status.
+
+## Feature orchestration (absorbs feature-dev)
+
+For a feature that benefits from parallel work, split it into at most three
+independent children: an explorer (map the code and constraints), an implementer
+(one coherent slice), and a reviewer (review the result). Give each a separate
+`ccr` ledger entry and a clear boundary; do not let two children edit the same
+files. The oracle may review the plan first when the design is non-trivial. The
+router owns the synthesis; a single `/feature` child is for small features only.
 
 ## Progress summaries
 

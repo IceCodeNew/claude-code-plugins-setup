@@ -573,10 +573,12 @@ def router_settings(
     for plugin in router.get("plugins", []):
         if plugin in enabled:
             enabled[plugin] = True
+    enabled_skills = set(router.get("skills", []))
     settings: dict = {
         "enabledPlugins": enabled,
-        "deniedMcpServers": [{"serverName": "fff"}],
-        "skillOverrides": {skill: "off" for skill in skills},
+        "skillOverrides": {
+            skill: ("on" if skill in enabled_skills else "off") for skill in skills
+        },
         "permissions": router_permissions(),
         "hooks": router_hooks(hooks_root),
         "env": {
@@ -698,8 +700,10 @@ def install_commands(
     """Install the user-invocable commands; never overwrite a human's command.
 
     Commands are global because plugin-scoped commands would be namespaced. They
-    set `disable-model-invocation`, and the router is started with
-    `--disable-slash-commands`, so they do not add model context to the router.
+    set `disable-model-invocation`, so they do not enter the model's skill list.
+    The router's prompt forbids running implementation commands; its agent also
+    disallows Edit/Write/Agent, so a mis-invoked command cannot implement in the
+    router.
     """
     directory = source / "commands"
     target_dir = config / "commands"
@@ -783,9 +787,18 @@ def refresh(args) -> int:
     for plugin in manifest.get("router", {}).get("plugins", []):
         if plugin not in plugins:
             errors.append(f"router: plugin not installed: {plugin}")
+    for skill in manifest.get("router", {}).get("skills", []):
+        if skill not in skills:
+            errors.append(f"router: skill not installed: {skill}")
     router = router_settings(manifest, plugins, skills, config, state, hooks_root)
     router_file = state / "runtime/router-settings.json"
     write_json(router_file, router, mode=0o600)
+    router_servers = {
+        server: resolve_mcp_server(server, manifest["mcpServers"][server])
+        for server in manifest.get("router", {}).get("mcp", [])
+    }
+    router_mcp = state / "runtime/router-mcp.json"
+    write_json(router_mcp, {"mcpServers": router_servers}, mode=0o600)
 
     router_prompt = (root / manifest["router"]["prompt"]).read_text().rstrip()
     if ROUTER_MARKER in router_prompt:
@@ -801,6 +814,7 @@ def refresh(args) -> int:
         "config": str(config),
         "state": str(state),
         "router_settings": str(router_file),
+        "router_mcp": str(router_mcp),
         "router_prompt": str(state / "runtime/router-prompt.md"),
     }
     index = generate_index(manifest, generated, plugins, skills, paths, warnings)
@@ -846,6 +860,7 @@ def refresh(args) -> int:
         "router": {
             "agent": str(agent_path),
             "settings": str(router_file),
+            "mcp": str(router_mcp),
         },
         "plugins": {
             "installed": len(plugins),
@@ -1159,7 +1174,8 @@ def cmd_router(args) -> int:
         str(router_file),
         "--agent",
         agent_name,
-        "--disable-slash-commands",
+        "--mcp-config",
+        str(state / "runtime/router-mcp.json"),
     ]
     if model and "--model" not in cli_args:
         argv += ["--model", model]
@@ -1628,6 +1644,7 @@ def cmd_doctor(args) -> int:
     for label, path in (
         ("index", state / "index.json"),
         ("router settings", state / "runtime/router-settings.json"),
+        ("router mcp", state / "runtime/router-mcp.json"),
         ("router agent", config / "agents" / f"{manifest['router']['agent']}.md"),
     ):
         if path.is_file():

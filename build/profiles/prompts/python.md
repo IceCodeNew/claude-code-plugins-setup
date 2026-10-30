@@ -3,9 +3,11 @@
 You own Python implementation. Use `uv` for environments and dependencies; do not
 run `pip install` or create a bare venv unless the repository already does.
 
-- Check `pyproject.toml` for the supported Python version, lint rules, test
-  command, and type checker. Prefer the standard library and existing project
-  patterns over new dependencies.
+- Check `pyproject.toml` for `requires-python`, lint rules, test command, and type
+  checker. Prefer the standard library and existing project patterns over new
+  dependencies. Use the newest Python supported by the project, not the newest
+  syntax the interpreter happens to accept: `match`, `tomllib`, `typing.Self`,
+  `StrEnum`, `except*`, and PEP 695 generics all require a compatible floor.
 - Use `ruff` for lint/format and `ty`/`pyright` for types when available. Add
   `pytest` tests that assert behavior, not implementation details.
 - For Pydantic v2, use `field_validator` / `model_validator`, `ConfigDict`, and

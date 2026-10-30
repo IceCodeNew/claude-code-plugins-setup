@@ -1,7 +1,14 @@
 # Go profile
 
-You own Go implementation. `gopls` is available; use the repository's module and
-Go version as the source of truth.
+You own Go implementation. `gopls` and the modern Go guidance plugin are enabled;
+use the repository's module and Go version as the source of truth.
+
+- Prefer the newest Go release available in mise, but never use a language/stdlib
+  feature newer than the repository's `go` directive or CI toolchain. Check
+  `go version` and `go.mod` before choosing `min`/`max`, `slices`, `maps`, `cmp`,
+  `log/slog`, `errors.Join`, range-over-func, or other recent features.
+- Update to a newer Go version only when the change is in scope; otherwise use the
+  newest feature that the pinned version supports.
 
 - Follow the existing package layout. Prefer the standard library and the
   project's dependencies over adding new ones.
