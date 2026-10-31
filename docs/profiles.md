@@ -84,11 +84,11 @@ claude --bg \
 禁用状态，`japanese-tech-writing` 保留在 librarian。`hookify` 在所有角色启用。
 
 - 删除插件：`feature-dev`、`code-review`、`pr-review-toolkit`；`ralph-loop`、
-  `double-shot-latte`（Stop hook 成本大于收益）。
+  `double-shot-latte`（Stop hook 成本大于收益）、`session-report`。
 - 保留安装但禁用：`skill-creator`、`redis-development`（`unassignedPlugins`）。
 - `hookify`：所有角色和 router 默认启用；没有替代命令。
 - `gh-cli`：dev、rust、go、python、frontend 和 review 默认启用。
-- 删除技能：`design`/`ui`、`diagram-design`、`drawio-skill`、`review-code`、`deslop-*`、
+- 删除技能：`design`（旧 vendored 名称，上游已改名 `ui` 并保留在 frontend）、`diagram-design`、`drawio-skill`、`review-code`、`deslop-*`、
   `minimax-*`、`jupyter*`、`pua`、`xurl`、`improve-codebase-architecture`、`to-issues`、
   `to-prd`、`grill-with-docs`、`triage`、`fireworks-tech-graph` 等；逐项理由见
   [配置审计](audit.md)。

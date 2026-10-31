@@ -244,7 +244,7 @@ done
 
 `fp-check` 包含 Stop 和 SubagentStop prompt hooks，可能增加模型调用费用；本仓库只在
 `review` 配置启用它，路由和其他配置不会加载。`gh-cli` 的 hooks 会拦截 GitHub 网页抓取及
-curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；它只在 `review` 配置启用。
+curl/wget 请求，改用 `gh`，并通过 PATH shim 限制部分 `gh` 用法；它在 dev、rust、go、python、frontend 和 review 配置启用。
 认证见[登录与认证](#5-登录与认证)。会话结束时会删除该会话的 `gh-clones-<session_id>`
 临时克隆目录，其中的修改也会丢失，需保留的工作应放在其他目录。
 
@@ -281,7 +281,7 @@ done
 例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`。命令正文是流程和验证要求；它们是模型可调用的角色命令（例如 librarian 用
 `/research`，oracle 用 `/plan`，review 用 `/review` 和 `/security-check`），
 也可以由用户直接输入。router 需要使用 session-driver、remember 和 nmem 的技能，因此不启用 `--disable-slash-commands`。
-session-driver/remember/nmem 的技能；实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
+实现类命令由 prompt 和 `disallowedTools` 限制。`ccr refresh` 会把
 [build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
 同名但非 ccr 生成的文件会跳过并告警，不会覆盖用户自定义命令。
 
@@ -324,7 +324,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
 | `japanese-tech-writing` | 上游 gist | librarian |
-| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / python / python；review 不重复 |
+| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / go / python；review 不重复 |
 | `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
 `tw93/Waza` 以仓库为单位安装，包含该仓库全部 8 个技能；tdd、karpathy-guidelines 从各自上游安装；ninehills 只提供自有 `tech-doc-style-chinese`。更新使用 `openskills update`，不需要克隆 ninehills 仓库或运行 `skills-manager`。
@@ -378,9 +378,9 @@ for s in check health ui; do
   }
 done
 if [ "$missing" = 0 ]; then
-  ccr refresh --strict
+  echo "Waza skills ok; run ccr refresh --strict after 4.8 installs ccr"
 else
-  echo "install the missing Waza skills, then run: ccr refresh --strict" >&2
+  echo "install the missing Waza skills, then rerun this check" >&2
 fi
 ```
 

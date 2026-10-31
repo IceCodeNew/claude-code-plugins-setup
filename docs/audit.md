@@ -34,7 +34,7 @@
 ### 真正卸载这些插件
 
 ```bash
-for p in feature-dev code-review pr-review-toolkit ralph-loop; do
+for p in feature-dev code-review pr-review-toolkit ralph-loop session-report; do
   claude plugin uninstall "$p@claude-plugins-official" 2>/dev/null || true
 done
 claude plugin uninstall double-shot-latte@superpowers-marketplace 2>/dev/null || true
@@ -85,7 +85,7 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 | `karpathy-guidelines` | forrestchang/andrej-karpathy-skills | dev / oracle |
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
 | `japanese-tech-writing` | 上游 gist | librarian |
-| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / python / python；review 不重复 |
+| `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / go / python；review 不重复 |
 | `reclaim-code-entropy` | Yevanchen/reclaim-code-entropy | dev，与 code-simplifier 同阶段 |
 | `gh-stack`、`reclaim-code-entropy`、`scoped-change`、`worktree-pr`、`ux-writing` | 各自上游 | dev / librarian |
 | `thermos*`、`test-audit`、`better-readme`、`searching-with-fff`、`ripwire*`、`code-review-page` | 各自上游 | review / dev / librarian |

@@ -78,6 +78,7 @@ class UserDocumentation(unittest.TestCase):
             "pr-review-toolkit",
             "ralph-loop",
             "double-shot-latte",
+            "session-report",
         )
         for plugin in deleted:
             self.assertNotIn(f"claude plugin install {plugin}", dockerfile)
