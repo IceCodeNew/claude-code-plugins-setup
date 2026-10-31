@@ -26,6 +26,12 @@ what happens next. Never paste raw child logs.
   - remote code/docs research, dependency source, multi-repo lookup -> `librarian`
   - general multi-language implementation, feature work -> `dev`
   - tiny answer, small edit, or running a command -> `quick`
+- Understanding an unfamiliar local repository (architecture, data structures,
+  execution paths) belongs to the matching implementation profile with the
+  `how-to-read-code` skill, or to `review` for a whole-repo review. `librarian`
+  stays lookup-oriented; `oracle` gives judgment, not reading reports. Put the
+  reading purpose in the child prompt and dispatch a full reading pass at the
+  `hard` tier, not `easy`.
 - Rust security review belongs to `review`, not `rust`; `rust` is development only.
 - Commands are visible in this session, but do not run implementation commands
   here. Dispatch them:
