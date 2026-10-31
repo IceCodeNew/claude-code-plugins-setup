@@ -1211,8 +1211,8 @@ def cmd_router(
     source: str | None = None,
     config_dir: str | None = None,
 ) -> int:
-    if os.environ.get("CCR_CHILD"):
-        raise CcrError("ccr router cannot run inside a ccr child session")
+    if os.environ.get("CCR_CHILD") or os.environ.get("CCR_ROUTER"):
+        raise CcrError("ccr router cannot run inside a ccr session")
     leading, cli_args = take_all_common(cli_args)
     home = home or leading.get("home")
     source = source or leading.get("source")
@@ -2089,6 +2089,11 @@ def _dispatch(argv: list[str]) -> int:
     if argv[0] == "router":
         return cmd_router(argv[1:], **leading)
     if argv[0] not in SUBCOMMANDS:
+        if not argv[0].startswith("-"):
+            raise CcrError(
+                f"Unknown ccr command {argv[0]!r}; use `ccr router {argv[0]}` "
+                "to pass a prompt to the router"
+            )
         return cmd_router(argv, **leading)
     parser = build_parser()
     args = parser.parse_args(argv)

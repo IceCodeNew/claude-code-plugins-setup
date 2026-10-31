@@ -320,6 +320,28 @@ class Profiles(unittest.TestCase):
         self.assertFalse((self.config / "commands/simplify.md").exists())
         self.assertFalse((self.config / "commands/commit.md").exists())
 
+    def test_unknown_commands_and_nested_routers_are_rejected(self):
+        unknown = subprocess.run(
+            CCR + ["summry"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(unknown.returncode, 2)
+        self.assertIn("Unknown ccr command", unknown.stderr)
+        nested = subprocess.run(
+            CCR + ["router", "--resume"],
+            env={**self.env, "CCR_ROUTER": "1"},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(nested.returncode, 2)
+        self.assertIn("cannot run inside a ccr session", nested.stderr)
+
     def test_router_permissions_do_not_auto_approve_writing_searches(self):
         settings = self.settings("review")
         permissions = settings["permissions"]
