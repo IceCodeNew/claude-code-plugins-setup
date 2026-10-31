@@ -59,14 +59,33 @@ class UserDocumentation(unittest.TestCase):
         self.assertIn("trash-put", alias)
         self.assertIn("false", alias)
 
-    def test_user_double_shot_latte_patch_matches_the_image(self):
-        """Given manual or image setup / When double-shot-latte is patched / Then both use one edit."""
-        dockerfile = (ROOT / "build/Dockerfile").read_text()
+    def test_manual_installs_every_required_waza_skill(self):
+        """Given the manual / When Waza is installed / Then check, health and ui are present."""
         setup = (ROOT / "claude-plugins-setup.md").read_text()
-        commands = re.findall(r"^sed -i '[^']*BASH_SOURCE[^']*'", dockerfile, re.MULTILINE)
-        self.assertEqual(len(commands), 1)
-        self.assertIn(commands[0], setup)
-        self.assertIn("double-shot-latte/*/hooks/run-hook.cmd", setup)
+        self.assertIn("tw93/Waza", setup)
+        self.assertIn("for s in check health hunt learn read think ui write; do", setup)
+        for skill in ("check", "health", "ui"):
+            self.assertIn(f"`{skill}`", setup)
+
+    def test_deleted_plugins_are_not_installed(self):
+        """Given the image inventory / When a plugin is deleted / Then neither image nor docs re-add it."""
+        dockerfile = (ROOT / "build/Dockerfile").read_text()
+        inventory = (ROOT / "claude-plugins.tsv").read_text()
+        setup = (ROOT / "claude-plugins-setup.md").read_text()
+        deleted = (
+            "feature-dev",
+            "code-review",
+            "pr-review-toolkit",
+            "ralph-loop",
+            "double-shot-latte",
+            "session-report",
+        )
+        for plugin in deleted:
+            self.assertNotIn(f"claude plugin install {plugin}", dockerfile)
+            self.assertNotIn(f"{plugin}@", inventory)
+            self.assertNotIn(f"claude plugin install {plugin}", setup)
+        for plugin in ("hookify", "skill-creator", "redis-development"):
+            self.assertIn(f"{plugin}@", inventory)
 
 
 if __name__ == "__main__":

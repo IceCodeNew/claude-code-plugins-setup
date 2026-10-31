@@ -1,4 +1,4 @@
-"""Exercise the installed user-scope fff server in isolated Git repositories."""
+"""Exercise the profile-scoped fff server in isolated Git repositories."""
 
 import json
 import os
@@ -127,7 +127,22 @@ def main():
         if config_directory
         else Path.home() / ".claude.json"
     )
-    server = json.loads(config_path.read_text())["mcpServers"]["fff"]
+    ccr_home = Path(
+        os.environ.get("CCR_HOME", Path.home() / ".local/state/cc-router")
+    )
+    candidates = [ccr_home / "profiles/dev/mcp.json", ccr_home / "profiles/rust/mcp.json"]
+    if config_path.exists():
+        candidates.append(config_path)
+    server = None
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        servers = json.loads(candidate.read_text()).get("mcpServers", {})
+        if "fff" in servers:
+            server = servers["fff"]
+            break
+    if server is None:
+        raise SystemExit(f"fff MCP is not registered in any of {candidates}")
     with tempfile.TemporaryDirectory(prefix="fff-smoke-") as directory:
         root = Path(directory)
         cases = [

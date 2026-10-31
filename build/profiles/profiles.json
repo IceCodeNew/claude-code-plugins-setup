@@ -1,0 +1,544 @@
+{
+  "version": 1,
+  "description": "Profile manifest for the ccr router. Every installed plugin and standalone skill is either assigned to exactly one domain profile or listed as unassigned (installed, hidden everywhere). Plugins may appear in more than one profile only when the domain genuinely needs them.",
+  "models": {
+    "router": "haiku",
+    "hard": "opus",
+    "medium": "sonnet",
+    "easy": "haiku"
+  },
+  "modelEnv": {
+    "router": "CCR_ROUTER_MODEL",
+    "hard": "CCR_HARD_MODEL",
+    "medium": "CCR_MEDIUM_MODEL",
+    "easy": "CCR_EASY_MODEL"
+  },
+  "router": {
+    "agent": "ccr-router",
+    "prompt": "prompts/router.md",
+    "description": "User-facing router: classify intent, dispatch background Claude Code sessions with the right profile and model, keep each session's must-retain context current, and report progress.",
+    "maxActiveChildren": 3,
+    "plugins": [
+      "nowledge-mem@nowledge-community",
+      "remember@claude-plugins-official",
+      "cloudflare@claude-plugins-official",
+      "linear@claude-plugins-official",
+      "telegram@claude-plugins-official",
+      "claude-session-driver@superpowers-marketplace",
+      "hookify@claude-plugins-official"
+    ],
+    "skills": [
+      "searching-with-fff"
+    ],
+    "mcp": [
+      "fff"
+    ]
+  },
+  "profiles": {
+    "quick": {
+      "description": "Easy tasks: a quick question, a one-file small edit, a lookup, or running a command.",
+      "prompt": "prompts/quick.md",
+      "tier": "easy",
+      "permissionMode": "acceptEdits",
+      "effort": "low",
+      "plugins": [
+        "hookify@claude-plugins-official"
+      ],
+      "skills": [
+        "searching-with-fff"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "quick question",
+        "quick fix",
+        "small edit",
+        "one file",
+        "single file",
+        "typo",
+        "rename",
+        "lookup",
+        "where is",
+        "what is",
+        "how do i",
+        "run the command",
+        "run this",
+        "小改",
+        "单文件",
+        "改个名",
+        "查一下",
+        "在哪里",
+        "是什么",
+        "怎么用",
+        "跑一下",
+        "执行命令"
+      ]
+    },
+    "dev": {
+      "description": "General software work: features, refactors, debugging, multi-file changes, tests, and planning.",
+      "prompt": "prompts/dev.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "context7@claude-plugins-official",
+        "github@claude-plugins-official",
+        "typesafe@typesafe-ai",
+        "remember@claude-plugins-official",
+        "superpowers@claude-plugins-official",
+        "security-guidance@claude-plugins-official",
+        "claude-md-management@claude-plugins-official",
+        "code-simplifier@claude-plugins-official",
+        "commit-commands@claude-plugins-official",
+        "claude-code-setup@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
+      ],
+      "skills": [
+        "tdd",
+        "think",
+        "hunt",
+        "karpathy-guidelines",
+        "scoped-change",
+        "worktree-pr",
+        "gh-stack",
+        "reclaim-code-entropy",
+        "searching-with-fff",
+        "health"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "implement",
+        "feature",
+        "refactor",
+        "debug",
+        "fix bug",
+        "root cause",
+        "test",
+        "architecture",
+        "multi-file",
+        "migrate",
+        "plan",
+        "design",
+        "实现",
+        "功能",
+        "重构",
+        "调试",
+        "修复",
+        "排查",
+        "测试",
+        "架构",
+        "多文件",
+        "迁移",
+        "规划",
+        "设计"
+      ]
+    },
+    "rust": {
+      "description": "Rust implementation: cargo, clippy, unsafe, concurrency, rust-analyzer. Security review goes to review.",
+      "prompt": "prompts/rust.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "rust-analyzer-lsp@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
+      ],
+      "skills": [
+        "searching-with-fff",
+        "fast-rust"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "rust",
+        "rustc",
+        "cargo",
+        "clippy",
+        "rustfmt",
+        "unsafe",
+        "tokio",
+        "serde",
+        "borrow checker",
+        "lifetime",
+        "trait",
+        "crate",
+        "所有权",
+        "生命周期"
+      ]
+    },
+    "review": {
+      "description": "Review, security audit, and verification: code review, PR review, Rust security review, vulnerability analysis, false-positive checks.",
+      "prompt": "prompts/review.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "coderabbit@claude-plugins-official",
+        "claude-security@claude-plugins-official",
+        "github@claude-plugins-official",
+        "entire@entire-skills",
+        "agentic-actions-auditor@trailofbits",
+        "audit-context-building@trailofbits",
+        "differential-review@trailofbits",
+        "fp-check@trailofbits",
+        "gh-cli@trailofbits",
+        "insecure-defaults@trailofbits",
+        "regression-hunt@trailofbits",
+        "review-walkthrough@trailofbits",
+        "sharp-edges@trailofbits",
+        "static-analysis@trailofbits",
+        "supply-chain-risk-auditor@trailofbits",
+        "variant-analysis@trailofbits",
+        "vulnerability-triage-brocards@trailofbits",
+        "rust-review@trailofbits",
+        "rust-analyzer-lsp@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
+      ],
+      "skills": [
+        "thermos",
+        "thermo-nuclear-review",
+        "thermo-nuclear-code-quality-review",
+        "test-audit",
+        "searching-with-fff",
+        "ripwire*",
+        "code-review-page",
+        "check"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "review",
+        "code review",
+        "audit",
+        "security",
+        "vulnerability",
+        "CVE",
+        "false positive",
+        "fp-check",
+        "verify",
+        "verification",
+        "diff",
+        "PR",
+        "supply chain",
+        "semgrep",
+        "codeql",
+        "审查",
+        "代码审查",
+        "审计",
+        "安全",
+        "漏洞",
+        "误报",
+        "验证",
+        "复核",
+        "回归"
+      ]
+    },
+    "librarian": {
+      "description": "Librarian: read-only remote-code and docs research across GitHub, dependencies, and the web; writing/diagrams when asked.",
+      "prompt": "prompts/librarian.md",
+      "tier": "easy",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "firecrawl@claude-plugins-official",
+        "github@claude-plugins-official",
+        "context7@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
+      ],
+      "skills": [
+        "read",
+        "write",
+        "learn",
+        "tech-doc-style-chinese",
+        "ux-writing",
+        "better-readme",
+        "searching-with-fff",
+        "japanese-tech-writing"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "research",
+        "look up",
+        "documentation",
+        "docs",
+        "README",
+        "blog",
+        "article",
+        "write",
+        "rewrite",
+        "proofread",
+        "diagram",
+        "drawio",
+        "scrape",
+        "web page",
+        "deep dive",
+        "github code",
+        "dependency",
+        "library source",
+        "examples",
+        "研究",
+        "查资料",
+        "文档",
+        "写作",
+        "润色",
+        "改稿",
+        "图表",
+        "网页",
+        "调研",
+        "查代码",
+        "依赖源码",
+        "开源示例"
+      ]
+    },
+    "go": {
+      "description": "Go implementation: packages, concurrency, errors, gopls, gofmt/vet/test.",
+      "prompt": "prompts/go.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "gopls-lsp@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "modern-go-guidelines@goland-claude-marketplace",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
+      ],
+      "skills": [
+        "searching-with-fff",
+        "modular-go"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "go",
+        "golang",
+        "goroutine",
+        "channel",
+        "go test",
+        "gofmt",
+        "gopls",
+        "go mod",
+        "interface",
+        "并发",
+        "切片",
+        "泛型"
+      ]
+    },
+    "python": {
+      "description": "Python implementation: uv, ruff, ty/pyright, pytest, Pydantic; no pip shims.",
+      "prompt": "prompts/python.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "pyright-lsp@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "modern-python@trailofbits",
+        "pydantic@pydantic-skills",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
+      ],
+      "skills": [
+        "friendly-python",
+        "searching-with-fff",
+        "piglet"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "python",
+        "pytest",
+        "uv",
+        "ruff",
+        "pyright",
+        "pydantic",
+        "asyncio",
+        "django",
+        "fastapi",
+        "typing",
+        "类型",
+        "虚拟环境"
+      ]
+    },
+    "oracle": {
+      "description": "Oracle: read-only senior analysis, architecture, planning, debugging hypotheses, and second opinions.",
+      "prompt": "prompts/oracle.md",
+      "tier": "hard",
+      "permissionMode": "plan",
+      "effort": "high",
+      "plugins": [
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official"
+      ],
+      "skills": [
+        "think",
+        "karpathy-guidelines",
+        "searching-with-fff"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "permissions": {
+        "deny": [
+          "Edit",
+          "Write",
+          "NotebookEdit"
+        ]
+      },
+      "keywords": [
+        "plan",
+        "planning",
+        "design",
+        "architecture",
+        "approach",
+        "tradeoff",
+        "trade-off",
+        "second opinion",
+        "analyze",
+        "analysis",
+        "review the plan",
+        "debug",
+        "root cause",
+        "why",
+        "proposal",
+        "方案",
+        "设计",
+        "规划",
+        "架构",
+        "权衡",
+        "取舍",
+        "第二意见",
+        "分析",
+        "复盘",
+        "计划",
+        "路线图"
+      ]
+    },
+    "frontend": {
+      "description": "Frontend implementation: modern web platform, accessibility, performance, TypeScript, framework conventions.",
+      "prompt": "prompts/frontend.md",
+      "tier": "hard",
+      "permissionMode": "acceptEdits",
+      "effort": "high",
+      "plugins": [
+        "modern-web-guidance@claude-plugins-official",
+        "typescript-lsp@claude-plugins-official",
+        "remember@claude-plugins-official",
+        "hookify@claude-plugins-official",
+        "gh-cli@trailofbits"
+      ],
+      "skills": [
+        "searching-with-fff",
+        "ui"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "keywords": [
+        "frontend",
+        "front-end",
+        "react",
+        "vue",
+        "svelte",
+        "angular",
+        "css",
+        "html",
+        "browser",
+        "web",
+        "accessibility",
+        "a11y",
+        "typescript",
+        "javascript",
+        "vite",
+        "next.js",
+        "前端",
+        "页面",
+        "组件",
+        "样式",
+        "浏览器",
+        "无障碍",
+        "性能",
+        "oxc",
+        "oxlint",
+        "oxfmt",
+        "eslint",
+        "prettier"
+      ]
+    },
+    "finder": {
+      "description": "Finder: fast read-only local codebase search; return files and line ranges, not essays.",
+      "prompt": "prompts/finder.md",
+      "tier": "medium",
+      "permissionMode": "plan",
+      "effort": "low",
+      "plugins": [
+        "hookify@claude-plugins-official"
+      ],
+      "skills": [
+        "searching-with-fff",
+        "ripwire*"
+      ],
+      "mcp": [
+        "fff"
+      ],
+      "permissions": {
+        "deny": [
+          "Edit",
+          "Write",
+          "NotebookEdit"
+        ]
+      },
+      "keywords": [
+        "find",
+        "where is",
+        "where are",
+        "locate",
+        "search",
+        "grep",
+        "call sites",
+        "callers",
+        "usages",
+        "references",
+        "definition",
+        "defined",
+        "which module",
+        "all occurrences",
+        "find all",
+        "查找",
+        "在哪儿",
+        "哪里",
+        "调用点",
+        "引用",
+        "定义",
+        "搜索",
+        "定位",
+        "所有出现"
+      ]
+    }
+  },
+  "unassignedPlugins": {
+    "skill-creator@claude-plugins-official": "Originally disabled; kept installed with the skill-creation command available.",
+    "redis-development@claude-plugins-official": "Originally disabled; not enabled by any profile."
+  },
+  "unassignedSkills": {},
+  "mcpServers": {
+    "fff": {
+      "type": "stdio",
+      "command": "fff-mcp"
+    }
+  }
+}

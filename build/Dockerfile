@@ -141,7 +141,6 @@ tree-sitter = "latest"
 "github:aptible/supercronic" = "latest"
 "github:entireio/cli" = "latest"
 "github:redhat-et/ripwire" = "latest"
-"github:Xuanwo/xurl" = "latest"
 
 [tools."http:coderabbit"]
 version = "latest"
@@ -190,6 +189,8 @@ cat > "${HOME}/.config/mise/conf.d/40-npm-tools.toml" <<'CONFIG'
 "npm:openskills" = "latest"
 "npm:firecrawl-cli" = "latest"
 "npm:playwright-core" = "latest"
+"npm:oxlint" = "latest"
+"npm:oxfmt" = "latest"
 CONFIG
 mise install
 # paseo depends on @anthropic-ai/claude-agent-sdk, whose platform package ships its own claude
@@ -257,18 +258,17 @@ claude plugin marketplace add entireio/skills
 claude plugin marketplace add trailofbits/skills
 
 for p in \
-    claude-code-setup claude-md-management claude-security cloudflare code-review \
-    code-simplifier coderabbit commit-commands context7 feature-dev firecrawl github \
-    gopls-lsp hookify linear modern-web-guidance pr-review-toolkit pyright-lsp \
-    ralph-loop redis-development remember rust-analyzer-lsp security-guidance \
-    session-report skill-creator superpowers telegram typescript-lsp
+    claude-code-setup claude-md-management claude-security cloudflare \
+    code-simplifier coderabbit commit-commands context7 firecrawl github gopls-lsp \
+    hookify linear modern-web-guidance pyright-lsp redis-development remember \
+    rust-analyzer-lsp security-guidance skill-creator superpowers telegram \
+    typescript-lsp
 do
     claude plugin install "$p@claude-plugins-official" --scope user
 done
 claude plugin install nowledge-mem@nowledge-community --scope user
 claude plugin install pydantic@pydantic-skills --scope user
 claude plugin install modern-go-guidelines@goland-claude-marketplace --scope user
-claude plugin install double-shot-latte@superpowers-marketplace --scope user
 claude plugin install claude-session-driver@superpowers-marketplace --scope user
 claude plugin install typesafe@typesafe-ai --scope user
 
@@ -282,23 +282,22 @@ do
     claude plugin install "$p@trailofbits" --scope user
 done
 
+# These are installed but originally disabled for plain claude; profiles decide.
 for p in redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
 
-# double-shot-latte 1.2.0 ships run-hook.cmd without a shebang, so Claude Code runs it under
-# /bin/sh, and dash rejects its ${BASH_SOURCE[0]} (https://github.com/obra/double-shot-latte/issues/37).
-# Once upstream fixes it the expression no longer matches; the smoke stage runs the hook under dash.
-sed -i 's/${BASH_SOURCE\[0\]:-$0}/$0/' \
-    "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd
-
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
-git clone --depth 1 https://github.com/ninehills/skills "${HOME}/git/ninehills-skills"
-python3 "${HOME}/git/ninehills-skills/skills-manager" scenarios install Common
-
+# Install the retained skills from their upstream repositories instead of the
+# ninehills Common bundle. The bundle vendors copies and has had broken symlink
+# layouts; direct upstreams keep the skill content and metadata current.
 bash "${HOME}/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/install.sh"
 
 for s in \
+    IceCodeNew/code-review-page-kit \
+    tw93/Waza \
+    mattpocock/skills/skills/engineering/tdd \
+    forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
     PsiACE/skills/skills/fast-rust \
     PsiACE/skills/skills/friendly-python \
     PsiACE/skills/skills/modular-go \
@@ -311,7 +310,6 @@ for s in \
     cursor/plugins/thermos/skills/thermos \
     cursor/plugins/thermos/skills/thermo-nuclear-review \
     cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
-    Xuanwo/xurl/skills/xurl \
     ninehills/skills/tech-doc-style-chinese \
     openclaw/openclaw/.agents/skills/test-audit \
     tommy0103/better-readme-skill/skills/better-readme \
@@ -454,6 +452,8 @@ COPY --link --parents --from=npm-tools \
     /./home/nonroot/.local/share/mise/installs/npm-openskills \
     /./home/nonroot/.local/share/mise/installs/npm-firecrawl-cli \
     /./home/nonroot/.local/share/mise/installs/npm-playwright-core \
+    /./home/nonroot/.local/share/mise/installs/npm-oxlint \
+    /./home/nonroot/.local/share/mise/installs/npm-oxfmt \
     /./home/nonroot/.config/mise/conf.d/40-npm-tools.toml \
     /
 COPY --link --parents --from=browsers /./home/nonroot/.cache/ms-playwright /
@@ -462,7 +462,6 @@ COPY --link --parents --from=agent-config \
     /./home/nonroot/.claude \
     /./home/nonroot/.claude.json \
     /./home/nonroot/.agents \
-    /./home/nonroot/git \
     /./home/nonroot/.local/share/gh \
     /
 COPY --link --parents --from=opencli /./home/nonroot/.local/share/mise/installs/npm-jackwener-opencli /./home/nonroot/.config/mise/conf.d/62-opencli.toml /
@@ -475,8 +474,14 @@ COPY --link --parents --from=fff-skill \
     /./home/nonroot/.agents/skills/searching-with-fff \
     /
 COPY --link --chmod=755 build/entrypoint.sh /
+# ccr profiles are generated from the manifest at build time and refreshed on
+# startup, so a persisted home can pick up new plugins and skills.
+COPY --link build/profiles/ /opt/cc-router/
+COPY --link --chmod=755 build/ccr/ccr.py /usr/local/bin/ccr
+# No user-scope MCP defaults: fff is loaded by the dev/rust/review profiles through
+# --mcp-config, so the router and unrelated sessions do not inherit it.
 COPY --link <<'MCP' /usr/local/share/claude-dev/mcp.json
-{"mcpServers":{"fff":{"type":"stdio","command":"/home/nonroot/.local/bin/fff-mcp"}}}
+{"mcpServers":{}}
 MCP
 ENV PATH="${HOME}/.local/bin:${PATH}"
 ENV CLAUDE_PLUGINS_VENV="${HOME}/.local/share/claude-plugins-venv"
@@ -494,6 +499,7 @@ CONFIG
 mise reshim
 /usr/bin/python3.13 -E -s /opt/claude-safety/hooks/configure-claude.py
 /entrypoint.sh --init-mcp
+/usr/local/bin/ccr refresh --strict
 cat >> "${HOME}/.bashrc" <<'ALIASES'
 alias rm='printf "%s\n" "Use trash-put -- <path>; trash-restore recovers files." >&2; false'
 ALIASES
@@ -506,7 +512,7 @@ ENTRYPOINT [ "catatonit", "-g", "--", "/entrypoint.sh" ]
 # CI builds this target before pushing, so the checks run inside BuildKit on the image it is
 # about to push, without loading or pulling it. It adds nothing to the default target below.
 FROM final AS smoke
-COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/test-safety-hooks.py build/entrypoint.sh /tmp/
+COPY --link --chmod=644 build/test-fff.py build/test-mcp-bootstrap.py build/test-entire.py build/test-safety-hooks.py build/test-profiles.py build/entrypoint.sh /tmp/
 RUN <<EOF
 set -euo pipefail
 claude --version
@@ -531,6 +537,18 @@ CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" py
 command -v git-remote-entire
 python3 -B /tmp/test-entire.py
 python3 -B /tmp/test-mcp-bootstrap.py
+python3 -B /tmp/test-profiles.py
+ccr doctor --strict
+jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
+jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
+jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+jq -e '.enabledPlugins["nowledge-mem@nowledge-community"] == true and .enabledPlugins["cloudflare@claude-plugins-official"] == true and .enabledPlugins["linear@claude-plugins-official"] == true and .enabledPlugins["telegram@claude-plugins-official"] == true and .enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.enabledPlugins["rust-review@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
+jq -e '.enabledPlugins["rust-review@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+test -r "${HOME}/.claude/agents/ccr-router.md"
+test -r "${HOME}/.claude/skills/code-review-page/SKILL.md"
+command -v oxlint
+command -v oxfmt
 python3 -B /tmp/test-fff.py
 test -r "${HOME}/.claude/skills/searching-with-fff/SKILL.md"
 test -r "${HOME}/.claude/skills/searching-with-fff/routing.md"
@@ -556,8 +574,6 @@ paseo --version
 vim --version >/dev/null
 bwrap --version
 yq --version
-# Claude Code runs double-shot-latte's run-hook.cmd under /bin/sh, which is dash here
-echo '{}' | /bin/sh "${HOME}"/.claude/plugins/cache/superpowers-marketplace/double-shot-latte/*/hooks/run-hook.cmd claude-judge-continuation | jq -e '.decision == "approve"' >/dev/null
 bash -lc 'python -c "import claude_agent_sdk, yaml" && claude plugin list && ls ~/.agents/skills'
 EOF
 
