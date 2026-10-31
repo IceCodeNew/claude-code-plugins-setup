@@ -92,6 +92,15 @@ elif "--agent" in args:
 elif "--disable-slash-commands" in args:
     print(" ".join(args))
 elif "--bg" in args or "--resume" in args:
+    record = os.path.join(
+        os.environ.get("CCR_HOME", ""),
+        "sessions",
+        os.environ.get("CCR_SESSION_ID", ""),
+        "record.json",
+    )
+    if not os.path.isfile(record):
+        print("child record is missing", file=sys.stderr)
+        sys.exit(1)
     print("backgrounded · deadbeef · ccr-test")
 else:
     print("unexpected fake claude args: " + " ".join(args), file=sys.stderr)

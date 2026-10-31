@@ -1389,20 +1389,26 @@ def cmd_spawn(args) -> int:
         preflight(session_settings, profile.get("plugins", []), config)
 
     write_text(Path(record["context_file"]), initial_ledger(record, prompt), mode=0o600)
+    record_file = record_path(state, record)
+    write_json(record_file, record, mode=0o600)
     environment = session_environment(config, state, record)
-    result = run(argv, cwd=Path(record["cwd"]), env=environment, timeout=args.timeout)
-    output = (result.stdout + result.stderr).strip()
-    if result.returncode != 0:
-        raise CcrError(
-            f"claude --bg failed ({result.returncode}):\n{output or '(no output)'}"
-        )
-    short_id = parse_background(output, session_name, config)
-    if not short_id:
-        raise CcrError(
-            "Could not identify the background session. Output was:\n"
-            + (output or "(empty)")
-            + "\nRun `claude agents --json` to inspect it."
-        )
+    try:
+        result = run(argv, cwd=Path(record["cwd"]), env=environment, timeout=args.timeout)
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode != 0:
+            raise CcrError(
+                f"claude --bg failed ({result.returncode}):\n{output or '(no output)'}"
+            )
+        short_id = parse_background(output, session_name, config)
+        if not short_id:
+            raise CcrError(
+                "Could not identify the background session. Output was:\n"
+                + (output or "(empty)")
+                + "\nRun `claude agents --json` to inspect it."
+            )
+    except BaseException:
+        record_file.unlink(missing_ok=True)
+        raise
     record["id"] = short_id
     agents = agents_json(config=config)
     agent = find_agent(record, agents)
