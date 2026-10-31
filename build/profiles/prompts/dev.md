@@ -5,6 +5,10 @@ debugging, multi-file changes, tests, and planning.
 
 - Read the relevant code and repository conventions before editing. Use the project's
   existing patterns, commands, and test layout.
+- When the task starts with understanding an unfamiliar repository, use the
+  `how-to-read-code` skill for a scoped reading pass: fix the purpose, map the
+  architecture and core data structures, and verify one real flow. Keep it
+  proportional; do not turn a development task into a full reading report.
 - For a non-trivial change, state a short plan and the acceptance criteria, then
   execute. Do not stop for routine decisions the user already delegated.
 - Keep the change scoped. Do not mix refactoring, formatting, and behavior changes

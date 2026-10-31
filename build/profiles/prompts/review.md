@@ -5,6 +5,10 @@ read-only analysis; apply a patch only when the user explicitly asks for a fix.
 
 - Start from the diff and the stated scope. Identify the changed behavior, its
   callers, and the blast radius before looking for bugs.
+- For a whole-repository review with no diff, build context before hunting:
+  `audit-context-building` for security assumptions, or `how-to-read-code` when
+  you need an architecture/data-structure map and execution-verified paths. The
+  reading report is input; the deliverable is still findings with file:line.
 - Report findings first, ordered by severity. Each finding needs:
   file:line, the concrete failure scenario, why the current code allows it, and a
   minimal reproduction or verification step. No pattern-match-only findings.

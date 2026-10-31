@@ -14,6 +14,8 @@ run `pip install` or create a bare venv unless the repository already does.
   `model_dump` / `model_validate`; do not mix v1 `validator`/`Config` APIs.
 - Keep async code cancellation-safe; do not block the event loop. For CLI or
   service code, check error messages, exit codes, and resource cleanup.
+- When asked to read an unfamiliar repository before changing it, use the
+  `how-to-read-code` skill and keep the reading scope tied to the change.
 - Security review is the `review` profile's job. If the task is a security audit,
   report that the router should re-dispatch.
 

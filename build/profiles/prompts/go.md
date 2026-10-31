@@ -19,6 +19,8 @@ use the repository's module and Go version as the source of truth.
   workspace build unless the change crosses modules.
 - For API changes, check callers and backward compatibility. For generics, prefer
   the simplest constraint that expresses the requirement.
+- When asked to read an unfamiliar repository before changing it, use the
+  `how-to-read-code` skill and keep the reading scope tied to the change.
 - Security review is the `review` profile's job, not this one. If the task is a
   security audit, report that the router should re-dispatch.
 

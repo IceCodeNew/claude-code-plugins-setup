@@ -332,6 +332,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 | `tech-doc-style-chinese` | ninehills/skills（自有，vendor） | librarian |
 | `japanese-tech-writing` | 上游 gist | librarian |
 | `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / go / python；review 不重复 |
+| `how-to-read-code` | lichuang/how-to-read-code | dev / rust / go / python；review 配置中用于整仓库阅读 |
 | `code-review-page` | IceCodeNew/code-review-page-kit | review |
 
 `tw93/Waza` 以仓库为单位安装，包含该仓库全部 8 个技能；tdd、karpathy-guidelines 从各自上游安装；ninehills 只提供自有 `tech-doc-style-chinese`。更新使用 `openskills update`，不需要克隆 ninehills 仓库或运行 `skills-manager`。
@@ -349,12 +350,14 @@ ripwire 升级后技能列表可能变化，重新执行同一条命令即可：
 ### 4.3 其余技能（openskills）
 
 `code-review-page` 的仓库根目录直接有 `SKILL.md`，openskills 会按其中的 `name`
-安装为 `code-review-page`；它只应在 review 角色启用。
+安装为 `code-review-page`；它只应在 review 角色启用。`how-to-read-code` 同样在
+仓库根目录提供 `SKILL.md`，安装后按名称分派到实现角色；review 配置也启用，但只用于整仓库阅读。
 
 ```bash
 cd ~
 for s in \
   IceCodeNew/code-review-page-kit \
+  lichuang/how-to-read-code \
   tw93/Waza \
   mattpocock/skills/skills/engineering/tdd \
   forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
@@ -747,6 +750,7 @@ ccr profiles
 ccr doctor --strict
 test -r ~/.claude/skills/searching-with-fff/SKILL.md
 test -r ~/.agents/skills/searching-with-fff/SKILL.md
+test -r ~/.claude/skills/how-to-read-code/SKILL.md
 gh stack --help | head -1
 ```
 

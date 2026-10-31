@@ -295,6 +295,7 @@ bash "${HOME}/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/
 
 for s in \
     IceCodeNew/code-review-page-kit \
+    lichuang/how-to-read-code \
     tw93/Waza \
     mattpocock/skills/skills/engineering/tdd \
     forrestchang/andrej-karpathy-skills/skills/karpathy-guidelines \
@@ -547,6 +548,12 @@ jq -e '.enabledPlugins["rust-review@trailofbits"] == true' "${HOME}/.local/state
 jq -e '.enabledPlugins["rust-review@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 test -r "${HOME}/.claude/agents/ccr-router.md"
 test -r "${HOME}/.claude/skills/code-review-page/SKILL.md"
+test -r "${HOME}/.claude/skills/how-to-read-code/SKILL.md"
+test -r "${HOME}/.claude/skills/how-to-read-code/templates/report-template.md"
+test "$(readlink "${HOME}/.agents/skills/how-to-read-code")" = "${HOME}/.claude/skills/how-to-read-code"
+jq -e '.skillOverrides["how-to-read-code"] == "on"' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
+jq -e '.skillOverrides["how-to-read-code"] == "on"' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
+jq -e '.skillOverrides["how-to-read-code"] == "off"' "${HOME}/.local/state/cc-router/profiles/librarian/settings.json"
 command -v oxlint
 command -v oxfmt
 python3 -B /tmp/test-fff.py
