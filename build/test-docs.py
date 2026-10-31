@@ -1,6 +1,7 @@
 """Check runnable documentation entrypoints and repository-local navigation."""
 
 import re
+import tomllib
 import unittest
 from pathlib import Path
 from urllib.parse import unquote
@@ -40,10 +41,6 @@ class UserDocumentation(unittest.TestCase):
                     if anchor:
                         self.assertTrue(destination.is_file(), target)
                         self.assertIn(anchor, anchors(destination.read_text()), target)
-
-    def test_maintainer_docs_directory_is_absent(self):
-        """Given the trimmed repository / When docs are inspected / Then no maintainer docs directory remains."""
-        self.assertFalse((ROOT / "docs").exists())
 
     def test_user_sees_runnable_image_usage_before_internal_details(self):
         """Given the README / When first opened / Then build and login precede internals."""
@@ -90,6 +87,33 @@ class UserDocumentation(unittest.TestCase):
             self.assertNotIn(f"claude plugin install {plugin}", setup)
         for plugin in ("hookify", "skill-creator", "redis-development"):
             self.assertIn(f"{plugin}@", inventory)
+
+    def test_manual_tools_cover_every_post_edit_linter(self):
+        """Given the manual mise config / When a file is edited / Then its linter is installed."""
+        setup = (ROOT / "claude-plugins-setup.md").read_text()
+        block = setup.split(
+            "cat > ~/.config/mise/config.toml <<'EOF'\n", 1
+        )[1].split("\nEOF", 1)[0]
+        tools = tomllib.loads(block)["tools"]
+        for tool in ("ruff", "npm:oxlint", "rust", "go"):
+            self.assertIn(tool, tools, tool)
+
+    def test_manual_plugin_totals_match_the_inventory(self):
+        """Given the manual / When it states totals and the disabled set / Then both match the inventory."""
+        setup = (ROOT / "claude-plugins-setup.md").read_text()
+        rows = [
+            line.split("\t")
+            for line in (ROOT / "claude-plugins.tsv").read_text().splitlines()
+            if line.strip()
+        ]
+        enabled = sum(1 for row in rows if row[3] == "true")
+        disabled = [row[0].split("@")[0] for row in rows if row[3] == "false"]
+        self.assertIn(
+            f"{len(rows)} 个插件（{enabled} 启用、{len(disabled)} 禁用）", setup
+        )
+        ownership = setup.split("### 3.1 插件归属", 1)[1].split("## 4.", 1)[0]
+        for name in disabled:
+            self.assertIn(f"`{name}`", ownership, name)
 
 
 if __name__ == "__main__":

@@ -89,6 +89,7 @@ exec bash
 | `"pypi:nmem-cli"` | nowledge-mem 的 hook 和命令 |
 | `"npm:openskills"` | 第 4 节安装第三方技能 |
 | `"npm:oxlint"` / `"npm:oxfmt"` | 前端角色默认的 oxc lint/format 工具链 |
+| `ruff` | Python 的 lint/format 工具链；post-edit-check 的 Python 诊断用它 |
 | `"github:redhat-et/ripwire"` | ripwire CLI，压缩包里带有第 4 节安装的 ripwire 技能 |
 | `pnpm` | 可选，modern-web-guidance 有 pnpm 时用 `pnpx` |
 | `http:coderabbit` | coderabbit CLI（下面的 URL 为 linux-x64 包） |
@@ -117,6 +118,7 @@ rust = { version = "latest", components = ["rust-src", "rust-analyzer"] }
 "npm:openskills" = "latest"
 "npm:oxlint" = "latest"
 "npm:oxfmt" = "latest"
+ruff = "latest"
 "github:redhat-et/ripwire" = "latest"
 
 [tools."http:coderabbit"]
@@ -148,7 +150,7 @@ echo "alias cr=coderabbit" >> ~/.bashrc
 
 ### 2.2 环境变量和共享 Python venv
 
-三个插件和一个技能需要第三方 Python 包，全部装进同一个 uv venv：
+两个插件和一个技能需要第三方 Python 包，全部装进同一个 uv venv：
 
 | 插件 | 包 | 怎么用到这个 venv |
 |---|---|---|
@@ -269,7 +271,9 @@ done
 插件只安装一次（user scope）。每个插件在
 [profiles.json](build/profiles/profiles.json) 里归入一个或多个配置；运行
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
-其他插件并启用自己的插件。44 个插件都有归属：42 个按角色启用，`skill-creator`、`redis-development` 保留原禁用状态。
+其他插件并启用自己的插件。44 个插件都有归属：42 个分派给 router 或某个配置，
+`skill-creator`、`redis-development` 不分派。user scope 默认启用 42 个：`redis-development`、
+`modern-web-guidance` 保持禁用；`skill-creator` 不分派但保持启用。
 
 插件清单和 Dockerfile 是安装内容的来源。
 
@@ -638,8 +642,8 @@ ccr refresh --strict
 ccr doctor --strict
 ```
 
-把两条 `export` 加进 `~/.bashrc`，否则新开的 shell 在自动 refresh 时会回退到
-系统 Python，找不到 `bashlex`。`CLAUDE_HOOK_PYTHON` 指向[4.6](#46-安全-hooks)创建的
+把两条 `export` 加进 `~/.bashrc`（Zsh 用 `~/.zshrc`），否则新开的 shell 在自动 refresh 时
+会回退到系统 Python，找不到 `bashlex`。`CLAUDE_HOOK_PYTHON` 指向[4.6](#46-安全-hooks)创建的
 hooks venv。
 
 模型档位用环境变量覆盖，默认 `CCR_ROUTER_MODEL=haiku`、`CCR_HARD_MODEL=opus`、
@@ -657,6 +661,9 @@ ccr refresh
 升级插件或技能后重新运行 `ccr refresh`；持久化 home 的启动脚本也会自动执行。旧的
 user-scope fff 按 4.4 移除。`ccr` 不修改用户 `settings.json`，只写
 `~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。
+
+`ccr doctor` 会提示 user settings 中已启用的插件被 ccr 忽略。这是预期结果：plain `claude`
+仍按用户 `settings.json` 加载插件，各配置的启用集合只由 `ccr` 生成的文件决定。
 
 ---
 
