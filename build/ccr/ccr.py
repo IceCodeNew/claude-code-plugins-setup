@@ -2035,8 +2035,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
+def _dispatch(argv: list[str]) -> int:
     leading, argv = take_common(argv)
     if not argv:
         return cmd_router([], **leading)
@@ -2058,8 +2057,12 @@ def main(argv: list[str] | None = None) -> int:
     for key, value in leading.items():
         if not hasattr(args, key):
             setattr(args, key, value)
+    return int(args.func(args) or 0)
+
+
+def main(argv: list[str] | None = None) -> int:
     try:
-        return int(args.func(args) or 0)
+        return _dispatch(list(sys.argv[1:] if argv is None else argv))
     except CcrError as error:
         print(f"ccr: {error}", file=sys.stderr)
         return 2
