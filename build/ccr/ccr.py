@@ -1389,9 +1389,9 @@ def cmd_spawn(args) -> int:
         preflight(session_settings, profile.get("plugins", []), config)
 
     write_text(Path(record["context_file"]), initial_ledger(record, prompt), mode=0o600)
+    environment = session_environment(config, state, record)
     record_file = record_path(state, record)
     write_json(record_file, record, mode=0o600)
-    environment = session_environment(config, state, record)
     try:
         result = run(argv, cwd=Path(record["cwd"]), env=environment, timeout=args.timeout)
         output = (result.stdout + result.stderr).strip()
@@ -1406,8 +1406,10 @@ def cmd_spawn(args) -> int:
                 + (output or "(empty)")
                 + "\nRun `claude agents --json` to inspect it."
             )
-    except BaseException:
-        record_file.unlink(missing_ok=True)
+    except BaseException as error:
+        record["launch_error"] = str(error)[:300]
+        record["updated_at"] = now_iso()
+        write_json(record_file, record, mode=0o600)
         raise
     record["id"] = short_id
     agents = agents_json(config=config)
