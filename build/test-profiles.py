@@ -135,6 +135,7 @@ class Profiles(unittest.TestCase):
         cls.config = cls.root / "config"
         cls.state = cls.root / "state"
         cls.skills = cls.config / "skills"
+        (cls.config / "plugins").mkdir(parents=True, exist_ok=True)
         for name in skill_names(cls.manifest):
             target = cls.skills / name
             target.mkdir(parents=True)
@@ -177,13 +178,135 @@ class Profiles(unittest.TestCase):
         )
 
     def test_refresh_succeeds_and_writes_every_profile(self):
-        self.assertEqual(self.refresh.returncode, 0, self.refresh.stderr)
+        refresh = subprocess.run(
+            CCR + ["refresh", "--strict"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(refresh.returncode, 0, refresh.stderr)
         for name in self.manifest["profiles"]:
             self.assertTrue((self.state / f"profiles/{name}/settings.json").is_file())
             self.assertTrue((self.state / f"profiles/{name}/prompt.md").is_file())
             self.assertTrue((self.state / f"profiles/{name}/mcp.json").is_file())
         self.assertTrue((self.state / "index.json").is_file())
         self.assertTrue((self.config / "agents/ccr-router.md").is_file())
+        claude_config = self.state / "claude"
+        self.assertTrue((claude_config / "settings.json").is_file())
+        self.assertEqual(
+            json.loads((claude_config / "settings.json").read_text()), {}
+        )
+        self.assertTrue((claude_config / ".claude.json").is_file())
+        self.assertEqual(
+            json.loads((claude_config / ".claude.json").read_text())["mcpServers"],
+            {},
+        )
+        for name in ("skills", "commands", "agents"):
+            link = claude_config / name
+            self.assertTrue(link.is_symlink(), name)
+            self.assertEqual(Path(os.readlink(link)), self.config / name)
+        index = json.loads((self.state / "index.json").read_text())
+        self.assertEqual(index["paths"]["claude_config"], str(claude_config))
+
+    def test_nested_ccr_uses_the_user_config(self):
+        env = {
+            **self.env,
+            "CLAUDE_CONFIG_DIR": str(self.state / "claude"),
+            "CCR_USER_CONFIG_DIR": str(self.config),
+        }
+        result = subprocess.run(
+            CCR
+            + [
+                "spawn",
+                "--profile",
+                "quick",
+                "--tier",
+                "easy",
+                "--name",
+                "nested",
+                "--prompt",
+                "noop",
+                "--dry-run",
+                "--json",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = json.loads(result.stdout)["record"]
+        self.assertEqual(
+            record["claude_config_dir"], str(self.state / "claude")
+        )
+        link = self.state / "claude/plugins"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(Path(os.readlink(link)), self.config / "plugins")
+        self.assertNotEqual(link.resolve(), link)
+
+    def test_shared_config_strips_user_mcp_but_keeps_projects(self):
+        home = self.root / "shared-home"
+        config = home / ".claude"
+        shutil.copytree(self.skills, config / "skills")
+        (home / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "hasCompletedOnboarding": True,
+                    "mcpServers": {"user": {"command": "user-mcp"}},
+                    "projects": {
+                        "/tmp/shared-project": {
+                            "hasTrustDialogAccepted": True,
+                            "mcpServers": {"project": {"command": "project-mcp"}},
+                        }
+                    },
+                }
+            )
+        )
+        (config / ".claude.json").write_text(
+            json.dumps({"stray": True, "mcpServers": {"stray": {}}})
+        )
+        (config / "settings.json").write_text(json.dumps({"theme": "dark"}))
+        state = home / "state"
+        env = {
+            **self.env,
+            "HOME": str(home),
+        }
+        env.pop("CCR_HOME", None)
+        env.pop("CLAUDE_CONFIG_DIR", None)
+        result = subprocess.run(
+            CCR
+            + [
+                "--home",
+                str(state),
+                "--config-dir",
+                str(config),
+                "refresh",
+                "--strict",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads((state / "claude/.claude.json").read_text())
+        self.assertTrue(data["hasCompletedOnboarding"])
+        self.assertNotIn("stray", data)
+        self.assertEqual(data["mcpServers"], {})
+        project = data["projects"]["/tmp/shared-project"]
+        self.assertTrue(project["hasTrustDialogAccepted"])
+        self.assertNotIn("mcpServers", project)
+        self.assertEqual(
+            json.loads((state / "claude/settings.json").read_text()),
+            {"theme": "dark"},
+        )
+        link = state / "claude/skills"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(Path(os.readlink(link)), config / "skills")
 
     def test_fp_check_is_review_only(self):
         for name in self.manifest["profiles"]:
@@ -437,11 +560,11 @@ class Profiles(unittest.TestCase):
         native = [
             line
             for line in lines
-            if "agents" in line or "mcp" in line or "plugin list" in line
+            if "agents" in line or "plugin list" in line
         ]
         self.assertTrue(native)
         for line in native:
-            self.assertTrue(line.startswith(str(alt_config) + "\t"), line)
+            self.assertTrue(line.startswith(str(self.state / "claude") + "\t"), line)
 
     def test_router_persists_the_selected_source(self):
         alt_source = self.root / "alt-source"
@@ -652,7 +775,7 @@ class Routing(unittest.TestCase):
         ):
             self.assertIn(flag, argv)
         self.assertEqual(argv[argv.index("--model") + 1], "haiku")
-        self.assertEqual(argv[argv.index("--setting-sources") + 1], "")
+        self.assertEqual(argv[argv.index("--setting-sources") + 1], "user")
         self.assertIn("--permission-mode", argv)
         self.assertNotIn("--agent", argv)
         self.assertEqual(data["record"]["profile"], "rust")
@@ -674,6 +797,7 @@ class Routing(unittest.TestCase):
         self.assertEqual(medium_argv[medium_argv.index("--model") + 1], "sonnet")
 
     def test_spawn_send_checkpoint_and_summary(self):
+        capture = self.root / "spawn-config.log"
         spawned = self.ccr(
             "spawn",
             "--profile",
@@ -685,10 +809,21 @@ class Routing(unittest.TestCase):
             "--prompt",
             "fix the unsafe block",
             "--json",
+            env={"CCR_CAPTURE_ENV": str(capture)},
         )
         self.assertEqual(spawned.returncode, 0, spawned.stderr)
         record = json.loads(spawned.stdout)
         self.assertEqual(record["id"], "deadbeef")
+        self.assertEqual(record["claude_config_dir"], str(self.state / "claude"))
+        lines = capture.read_text().splitlines()
+        native = [
+            line
+            for line in lines
+            if "plugin list" in line or "agents" in line
+        ]
+        self.assertTrue(native)
+        for line in native:
+            self.assertTrue(line.startswith(str(self.state / "claude") + "\t"), line)
         record_file = self.state / "sessions" / self._local_id() / "record.json"
         stored = json.loads(record_file.read_text())
         self.assertEqual(stored["local_id"], self._local_id())
@@ -712,6 +847,12 @@ class Routing(unittest.TestCase):
         sent = self.ccr("send", "deadbeef", "add a regression test", "--json")
         self.assertEqual(sent.returncode, 0, sent.stderr)
         self.assertIn("router instruction", context.read_text())
+
+        status = self.ccr("status", "deadbeef", "--json")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        status_data = json.loads(status.stdout)
+        self.assertEqual(status_data["id"], "deadbeef")
+        self.assertEqual(status_data["claude_config_dir"], str(self.state / "claude"))
 
         summary = self.ccr("summary", "--json")
         self.assertEqual(summary.returncode, 0, summary.stderr)
@@ -813,7 +954,7 @@ class Routing(unittest.TestCase):
         self.assertNotIn("--home", router.stdout)
         self.assertNotIn("--config-dir", router.stdout)
         self.assertIn(str(alt_state / "runtime/router-settings.json"), router.stdout)
-        self.assertIn(f"CLAUDE_CONFIG_DIR={alt_config}", router.stdout)
+        self.assertIn(f"CLAUDE_CONFIG_DIR={alt_state / 'claude'}", router.stdout)
         second_config = self.root / "second-config"
         shutil.copytree(self.skills, second_config / "skills")
         switched = subprocess.run(
@@ -834,7 +975,7 @@ class Routing(unittest.TestCase):
         )
         self.assertEqual(switched.returncode, 0, switched.stderr)
         self.assertTrue((second_config / "agents/ccr-router.md").is_file())
-        self.assertIn(f"CLAUDE_CONFIG_DIR={second_config}", switched.stdout)
+        self.assertIn(f"CLAUDE_CONFIG_DIR={alt_state / 'claude'}", switched.stdout)
         trailing = subprocess.run(
             CCR
             + [
@@ -865,7 +1006,9 @@ class Routing(unittest.TestCase):
             timeout=60,
         )
         self.assertEqual(default.returncode, 0, default.stderr)
-        self.assertIn("CLAUDE_CONFIG_DIR=\n", default.stdout)
+        self.assertIn(
+            f"CLAUDE_CONFIG_DIR={self.state / 'claude'}\n", default.stdout
+        )
         doctor = subprocess.run(
             CCR
             + [
@@ -889,6 +1032,10 @@ class Routing(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("--disable-slash-commands", result.stdout)
         self.assertIn("--agent ccr-router", result.stdout)
+        self.assertEqual(
+            result.stdout.split("--setting-sources ", 1)[1].split(" ", 1)[0],
+            "user",
+        )
         self.assertNotIn("--strict-mcp-config", result.stdout)
         self.assertIn("--mcp-config", result.stdout)
         self.assertIn("--setting-sources", result.stdout)
