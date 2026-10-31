@@ -6,6 +6,8 @@ child sessions with `claude --bg`, one profile at a time, using:
 
   --setting-sources ""            ignore the user's always-on settings
   --settings <profile>.json       enable only this profile's plugins/skills/hooks
+  --agents <json>                 define the router agent for this session; user
+                                  agents are hidden by --setting-sources ""
   --append-system-prompt-file     append the profile's system prompt
   --mcp-config <file>             add this profile's standalone MCP (fff)
                                   (plugin MCPs still load)
@@ -36,6 +38,10 @@ VERSION = "1.0.0"
 DEFAULT_MODELS = {"router": "haiku", "hard": "opus", "medium": "sonnet", "easy": "haiku"}
 CHILD_CONTRACT = "_child-contract.md"
 ROUTER_MARKER = "<!-- CCR_PROFILE_INDEX -->"
+ROUTER_DESCRIPTION = (
+    "Route requests to ccr profiles and keep their context current."
+)
+ROUTER_DISALLOWED_TOOLS = ("Edit", "Write", "NotebookEdit", "Agent", "Workflow")
 SAFETY_ROLES = {
     "block-rm": ("PreToolUse", "Bash"),
     "require-tmux": ("PreToolUse", "Bash"),
@@ -719,6 +725,47 @@ def profile_index_markdown(manifest: dict) -> str:
     return "\n".join(lines)
 
 
+def router_agent(
+    manifest: dict, prompt: str, model: str | None
+) -> tuple[str, dict]:
+    """Return the router agent name and the definition Claude Code loads.
+
+    `ccr router` starts Claude Code with `--setting-sources ""`, which hides
+    user-level agents in `~/.claude/agents`. The router agent is therefore also
+    passed inline with `--agents`; the generated markdown file is kept for
+    manual `claude --agent ccr-router` sessions.
+    """
+    name = manifest.get("router", {}).get("agent", "ccr-router")
+    definition: dict = {
+        "description": ROUTER_DESCRIPTION,
+        "prompt": prompt.rstrip() + "\n",
+        "disallowedTools": list(ROUTER_DISALLOWED_TOOLS),
+    }
+    if model:
+        definition["model"] = model
+    return name, definition
+
+
+def router_agent_markdown(name: str, definition: dict) -> str:
+    lines = [
+        "---",
+        f"name: {name}",
+        f"description: {definition['description']}",
+    ]
+    if definition.get("model"):
+        lines.append(f"model: {definition['model']}")
+    lines += [
+        "disallowedTools: " + ", ".join(definition["disallowedTools"]),
+        "---",
+        "",
+    ]
+    return "\n".join(lines) + definition["prompt"]
+
+
+def router_agents_json(name: str, definition: dict) -> str:
+    return json.dumps({name: definition}, ensure_ascii=False)
+
+
 def resolve_mcp_server(name: str, definition: dict) -> dict:
     server = dict(definition)
     command = server.get("command")
@@ -867,23 +914,12 @@ def refresh(args) -> int:
             errors.append(f"installed skill not classified: {skill}")
     write_json(state / "index.json", index, mode=0o600)
 
-    agent_name = manifest["router"].get("agent", "ccr-router")
-    agent_path = config / "agents" / f"{agent_name}.md"
     model = os.environ.get("CCR_ROUTER_MODEL") or manifest["models"].get(
         "router", "haiku"
     )
-    frontmatter = "\n".join(
-        [
-            "---",
-            f"name: {agent_name}",
-            "description: Route requests to ccr profiles and keep their context current.",
-            f"model: {model}",
-            "disallowedTools: Edit, Write, NotebookEdit, Agent, Workflow",
-            "---",
-            "",
-        ]
-    )
-    agent_text = frontmatter + router_prompt + "\n"
+    agent_name, agent_definition = router_agent(manifest, router_prompt, model)
+    agent_path = config / "agents" / f"{agent_name}.md"
+    agent_text = router_agent_markdown(agent_name, agent_definition)
     if agent_path.exists() and agent_path.read_text() != agent_text:
         backup = agent_path.with_suffix(".md.bak")
         if not backup.exists():
@@ -1263,9 +1299,10 @@ def cmd_router(
             )
         )
     router_file = state / "runtime/router-settings.json"
-    router = manifest.get("router", {})
-    agent_name = router.get("agent", "ccr-router")
     model = model_for(manifest, "router")
+    agent_name, agent_definition = router_agent(
+        manifest, (state / "runtime/router-prompt.md").read_text(), model
+    )
     argv = [
         claude_bin(),
         "--setting-sources",
@@ -1274,6 +1311,8 @@ def cmd_router(
         str(router_file),
         "--agent",
         agent_name,
+        "--agents",
+        router_agents_json(agent_name, agent_definition),
         "--mcp-config",
         str(state / "runtime/router-mcp.json"),
     ]
