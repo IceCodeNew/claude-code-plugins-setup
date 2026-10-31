@@ -324,7 +324,9 @@ def parse_plugins_payload(payload) -> list[str]:
     return sorted(set(identifiers))
 
 
-def installed_plugins(explicit: str | None = None) -> list[str]:
+def installed_plugins(
+    explicit: str | None = None, config: Path | None = None
+) -> list[str]:
     def from_value(value: str) -> list[str]:
         stripped = value.lstrip()
         if stripped.startswith(("[", "{")):
@@ -342,7 +344,11 @@ def installed_plugins(explicit: str | None = None) -> list[str]:
     env_value = os.environ.get("CCR_PLUGINS_JSON")
     if env_value:
         return from_value(env_value)
-    result = run([claude_bin(), "plugin", "list", "--json"], timeout=60)
+    result = run(
+        [claude_bin(), "plugin", "list", "--json"],
+        env=merged_environment(config or config_dir()),
+        timeout=60,
+    )
     if result.returncode != 0:
         raise CcrError(
             "claude plugin list --json failed:\n"
@@ -780,7 +786,7 @@ def refresh(args) -> int:
     state = state_home(getattr(args, "home", None))
     config = config_dir(getattr(args, "config_dir", None))
     hooks_root = hooks_dir()
-    plugins = installed_plugins(getattr(args, "plugins_json", None))
+    plugins = installed_plugins(getattr(args, "plugins_json", None), config)
     skills = installed_skills(getattr(args, "skills_dir", None), config)
     profiles = manifest.get("profiles", {})
     if not profiles:
@@ -942,8 +948,14 @@ def refresh(args) -> int:
 # Claude session helpers
 
 
-def agents_json(threshold: int = 30) -> list[dict]:
-    result = run([claude_bin(), "agents", "--json", "--all"], timeout=threshold)
+def agents_json(
+    threshold: int = 30, config: Path | None = None
+) -> list[dict]:
+    result = run(
+        [claude_bin(), "agents", "--json", "--all"],
+        env=merged_environment(config or config_dir()),
+        timeout=threshold,
+    )
     if result.returncode != 0:
         return []
     try:
@@ -1120,7 +1132,9 @@ def model_for(
     return manifest["models"].get(tier)
 
 
-def preflight(settings_file: Path, profile_plugins: list[str]) -> None:
+def preflight(
+    settings_file: Path, profile_plugins: list[str], config: Path
+) -> None:
     """Check that Claude parses the settings and enables the expected plugins.
 
     `plugin list` does not call a model, so this is cheap and works before auth.
@@ -1136,6 +1150,7 @@ def preflight(settings_file: Path, profile_plugins: list[str]) -> None:
             "list",
             "--json",
         ],
+        env=merged_environment(config),
         timeout=60,
     )
     if result.returncode != 0:
@@ -1178,11 +1193,11 @@ def session_environment(
     return environment
 
 
-def parse_background(output: str, name: str) -> str | None:
+def parse_background(output: str, name: str, config: Path) -> str | None:
     match = re.search(r"backgrounded\s*[·\-]?\s*([0-9a-f]{8})\b", output)
     if match:
         return match.group(1)
-    for agent in agents_json():
+    for agent in agents_json(config=config):
         if agent.get("name") == name and agent.get("id"):
             return str(agent["id"])
     return None
@@ -1266,7 +1281,13 @@ def cmd_router(
         argv += ["--model", model]
     argv += cli_args
     environment = merged_environment(config)
-    environment.update({"CCR_HOME": str(state), "CCR_PROFILE": "router"})
+    environment.update(
+        {
+            "CCR_HOME": str(state),
+            "CCR_PROFILE": "router",
+            "CCR_SOURCE_DIR": str(root),
+        }
+    )
     os.execvpe(argv[0], argv, environment)
     return 0
 
@@ -1365,7 +1386,7 @@ def cmd_spawn(args) -> int:
     context.mkdir(parents=True, exist_ok=True, mode=0o700)
     session_settings = write_session_settings(settings_file, context, record)
     if not args.no_preflight:
-        preflight(session_settings, profile.get("plugins", []))
+        preflight(session_settings, profile.get("plugins", []), config)
 
     write_text(Path(record["context_file"]), initial_ledger(record, prompt), mode=0o600)
     environment = session_environment(config, state, record)
@@ -1375,7 +1396,7 @@ def cmd_spawn(args) -> int:
         raise CcrError(
             f"claude --bg failed ({result.returncode}):\n{output or '(no output)'}"
         )
-    short_id = parse_background(output, session_name)
+    short_id = parse_background(output, session_name, config)
     if not short_id:
         raise CcrError(
             "Could not identify the background session. Output was:\n"
@@ -1383,7 +1404,7 @@ def cmd_spawn(args) -> int:
             + "\nRun `claude agents --json` to inspect it."
         )
     record["id"] = short_id
-    agents = agents_json()
+    agents = agents_json(config=config)
     agent = find_agent(record, agents)
     if agent and agent.get("sessionId"):
         record["session_id"] = agent["sessionId"]
@@ -1497,10 +1518,10 @@ def cmd_send(args) -> int:
     if result.returncode != 0:
         raise CcrError(f"claude --resume failed:\n{output or '(no output)'}")
     append_ledger(context, "router instruction", message, "router")
-    new_id = parse_background(output, record["name"])
+    new_id = parse_background(output, record["name"], config)
     if new_id and new_id != record["id"]:
         record["id"] = new_id
-        agent = find_agent(record, agents_json())
+        agent = find_agent(record, agents_json(config=config))
         if agent and agent.get("sessionId"):
             record["session_id"] = agent["sessionId"]
     record["updated_at"] = now_iso()
@@ -1560,9 +1581,9 @@ def cmd_checkpoint(args) -> int:
     return 0
 
 
-def status_rows(state: Path) -> tuple[list[dict], list[dict]]:
+def status_rows(state: Path, config: Path) -> tuple[list[dict], list[dict]]:
     records = read_records(state)
-    agents = agents_json()
+    agents = agents_json(config=config)
     rows = []
     for record in records:
         agent = find_agent(record, agents)
@@ -1605,7 +1626,9 @@ def last_status(path: Path) -> str:
 
 
 def cmd_list(args) -> int:
-    rows, _ = status_rows(state_home(getattr(args, "home", None)))
+    state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
+    rows, _ = status_rows(state, config)
     if args.json:
         print(dump_json(rows))
         return 0
@@ -1624,21 +1647,28 @@ def cmd_list(args) -> int:
 
 def cmd_status(args) -> int:
     state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     record = resolve_record(state, args.session)
-    agents = agents_json()
+    agents = agents_json(config=config)
     agent = find_agent(record, agents)
     data = dict(record)
     data["agent"] = agent
     data["context"] = context_path(state, record).read_text() if context_path(state, record).exists() else ""
     if args.logs:
-        result = run([claude_bin(), "logs", record["id"]], timeout=30)
+        result = run(
+            [claude_bin(), "logs", record["id"]],
+            env=merged_environment(config),
+            timeout=30,
+        )
         data["logs"] = (result.stdout + result.stderr).strip()
     print(dump_json(data) if args.json else json.dumps(data, indent=2, ensure_ascii=False))
     return 0
 
 
 def cmd_summary(args) -> int:
-    rows, _ = status_rows(state_home(getattr(args, "home", None)))
+    state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
+    rows, _ = status_rows(state, config)
     if args.json:
         print(dump_json(rows))
         return 0
@@ -1670,16 +1700,26 @@ def cmd_summary(args) -> int:
 
 def cmd_stop(args) -> int:
     state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     record = resolve_record(state, args.session)
-    result = run([claude_bin(), "stop", record["id"]], timeout=60)
+    result = run(
+        [claude_bin(), "stop", record["id"]],
+        env=merged_environment(config),
+        timeout=60,
+    )
     print((result.stdout + result.stderr).strip() or f"stopped {record['id']}")
     return result.returncode
 
 
 def cmd_rm(args) -> int:
     state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     record = resolve_record(state, args.session)
-    result = run([claude_bin(), "rm", record["id"]], timeout=60)
+    result = run(
+        [claude_bin(), "rm", record["id"]],
+        env=merged_environment(config),
+        timeout=60,
+    )
     print((result.stdout + result.stderr).strip() or f"removed {record['id']}")
     if result.returncode == 0:
         local_id = str(record.get("local_id") or record["id"])
@@ -1752,7 +1792,7 @@ def cmd_doctor(args) -> int:
             errors.append(f"missing {label}: {path}; run `ccr refresh`")
 
     try:
-        plugins = installed_plugins(args.plugins_json)
+        plugins = installed_plugins(args.plugins_json, config)
         skills = installed_skills(args.skills_dir, config)
         assigned_plugins = set(manifest.get("router", {}).get("plugins", []))
         assigned_skills = set()
@@ -1843,7 +1883,11 @@ def cmd_doctor(args) -> int:
             + ", ".join(enabled_user[:8])
             + ("..." if len(enabled_user) > 8 else "")
         )
-    mcp = run([claude_bin(), "mcp", "get", "fff"], timeout=30)
+    mcp = run(
+        [claude_bin(), "mcp", "get", "fff"],
+        env=merged_environment(config),
+        timeout=30,
+    )
     if mcp.returncode == 0:
         warnings.append(
             "user-scope fff MCP is registered; ccr ignores it, plain claude does not. "
@@ -1867,7 +1911,11 @@ def cmd_doctor(args) -> int:
         router_file = state / "runtime/router-settings.json"
         if router_file.is_file():
             try:
-                preflight(router_file, manifest.get("router", {}).get("plugins", []))
+                preflight(
+                    router_file,
+                    manifest.get("router", {}).get("plugins", []),
+                    config,
+                )
                 checks.append(("preflight router", "ok"))
             except CcrError as error:
                 errors.append(f"router: {error}")
@@ -1876,7 +1924,7 @@ def cmd_doctor(args) -> int:
             if not settings_file.is_file():
                 continue
             try:
-                preflight(settings_file, profile.get("plugins", []))
+                preflight(settings_file, profile.get("plugins", []), config)
                 checks.append((f"preflight {name}", "ok"))
             except CcrError as error:
                 errors.append(f"{name}: {error}")

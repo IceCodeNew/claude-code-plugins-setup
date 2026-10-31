@@ -63,6 +63,15 @@ import os
 import sys
 
 args = sys.argv[1:]
+capture = os.environ.get("CCR_CAPTURE_ENV")
+if capture:
+    with open(capture, "a") as handle:
+        handle.write(
+            os.environ.get("CLAUDE_CONFIG_DIR", "")
+            + chr(9)
+            + " ".join(args)
+            + chr(10)
+        )
 if "plugin" in args and "list" in args:
     settings = None
     for index, value in enumerate(args):
@@ -78,6 +87,7 @@ elif "mcp" in args:
     sys.exit(1)
 elif "--agent" in args:
     print("CLAUDE_CONFIG_DIR=" + os.environ.get("CLAUDE_CONFIG_DIR", ""))
+    print("CCR_SOURCE_DIR=" + os.environ.get("CCR_SOURCE_DIR", ""))
     print(" ".join(args))
 elif "--disable-slash-commands" in args:
     print(" ".join(args))
@@ -341,6 +351,86 @@ class Profiles(unittest.TestCase):
         )
         self.assertEqual(nested.returncode, 2)
         self.assertIn("cannot run inside a ccr session", nested.stderr)
+
+    def test_native_helpers_use_the_selected_config(self):
+        alt_config = self.root / "native-config"
+        shutil.copytree(self.skills, alt_config / "skills")
+        capture = self.root / "native-capture.log"
+        env = {**self.env, "CCR_CAPTURE_ENV": str(capture)}
+        refreshed = subprocess.run(
+            CCR + ["refresh", "--config-dir", str(alt_config), "--strict"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+        listed = subprocess.run(
+            CCR + ["list", "--config-dir", str(alt_config)],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        doctor = subprocess.run(
+            CCR
+            + ["doctor", "--config-dir", str(alt_config), "--no-preflight"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(doctor.returncode, 0, doctor.stdout + doctor.stderr)
+        spawned = subprocess.run(
+            CCR
+            + [
+                "spawn",
+                "--config-dir",
+                str(alt_config),
+                "--profile",
+                "rust",
+                "--tier",
+                "easy",
+                "--name",
+                "native-spawn",
+                "--prompt",
+                "noop",
+                "--json",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(spawned.returncode, 0, spawned.stderr)
+        lines = capture.read_text().splitlines()
+        native = [
+            line
+            for line in lines
+            if "agents" in line or "mcp" in line or "plugin list" in line
+        ]
+        self.assertTrue(native)
+        for line in native:
+            self.assertTrue(line.startswith(str(alt_config) + "\t"), line)
+
+    def test_router_persists_the_selected_source(self):
+        alt_source = self.root / "alt-source"
+        shutil.copytree(SOURCE, alt_source)
+        router = subprocess.run(
+            CCR + ["--source", str(alt_source), "router", "--resume"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(router.returncode, 0, router.stderr)
+        self.assertIn(f"CCR_SOURCE_DIR={alt_source}", router.stdout)
 
     def test_router_permissions_do_not_auto_approve_writing_searches(self):
         settings = self.settings("review")
