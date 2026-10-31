@@ -288,10 +288,14 @@ done
 [build/profiles/commands](build/profiles/commands) 同步到 `~/.claude/commands/`；
 同名但非 ccr 生成的文件会跳过并告警，不会覆盖用户自定义命令。
 
-这不是简单的「按需 `/plugin` 开关」：`ccr` 启动子会话时用 `--setting-sources ""`
-忽略用户 settings，再用 `--settings <profile>` 覆盖 `enabledPlugins`，所以专业配置的
-hooks 不会泄漏到路由或其他配置。`fp-check` 只在 `review` 配置启用，路由、`dev`、
-`rust` 等会话不会加载它的 `Stop` / `SubagentStop` prompt hook。
+这不是简单的「按需 `/plugin` 开关」：`ccr` 为所有会话生成共享的
+`~/.local/state/cc-router/claude/` 配置目录，用 `--setting-sources user` 只加载这个
+目录。目录里的 `settings.json` 只保留 `theme` 等少量偏好，不复制用户设置；`skills`、`commands`、`agents`、`plugins`、
+`.credentials.json` 符号链接到真实 `~/.claude`，`.claude.json` 保留 project trust、
+清空 user MCP；再用 `--settings <profile>` 覆盖 `enabledPlugins` 和 hooks。这样用户
+`settings.json`、user MCP 和专业配置的 hooks 不会互相泄漏，同时命令和 standalone
+skills 在路由与子会话中可用。`fp-check` 只在 `review` 配置启用，路由、`dev`、`rust`
+等会话不会加载它的 `Stop` / `SubagentStop` prompt hook。
 
 清单中的版本列只供核对，下面命令不据此锁定版本。使用清单批量安装前，应先添加对应 marketplace：
 
@@ -660,9 +664,9 @@ ccr refresh
 
 升级插件或技能后重新运行 `ccr refresh`；持久化 home 的启动脚本也会自动执行。旧的
 user-scope fff 按 4.4 移除。`ccr` 不修改用户 `settings.json`，只写
-`~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。路由会话用
-`--setting-sources ""` 启动，用户级 agents 不会加载，所以 `ccr` 还会用 `--agents`
-把同一份定义内联传给 Claude Code；该文件只供手动 `claude --agent ccr-router` 使用。
+`~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。路由和子会话使用
+`~/.local/state/cc-router/claude/` 这个共享配置目录，`~/.claude/agents` 等以符号链接
+进入，所以该文件会自动加载；`ccr` 仍用 `--agents` 内联传入同一份定义作为兜底。
 
 `ccr doctor` 会提示 user settings 中已启用的插件被 ccr 忽略。这是预期结果：plain `claude`
 仍按用户 `settings.json` 加载插件，各配置的启用集合只由 `ccr` 生成的文件决定。

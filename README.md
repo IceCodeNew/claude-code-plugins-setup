@@ -32,7 +32,7 @@ PROMPT
 ccr summary         # 汇总各子会话进度
 ```
 
-路由自己只加载记忆、运维和会话编排插件，不加载实现类领域插件；`fp-check` 这类带全局 hooks 的插件只在 `review` 配置启用。子会话通过 `--setting-sources ""`、各自的 `--settings`、`--append-system-prompt-file`、`--mcp-config` 和 `--model` 启动，互不继承插件、技能或 hooks；插件自带的 MCP 随插件启用，fff 在所有角色（包括 router）通过 `--mcp-config` 加载。路由自身也用 `--setting-sources ""` 启动，因此用户级 `~/.claude/agents` 不会加载；`ccr` 用 `--agents` 内联传入 `ccr-router` 定义，`~/.claude/agents/ccr-router.md` 仅供手动 `claude --agent ccr-router` 使用。
+路由自己只加载记忆、运维和会话编排插件，不加载实现类领域插件；`fp-check` 这类带全局 hooks 的插件只在 `review` 配置启用。路由和子会话统一用 `--setting-sources user` 加载 `~/.local/state/cc-router/claude/`（由 `ccr refresh` 生成）：其中 `settings.json` 只保留 `theme` 等少量偏好、不复制用户设置，`skills`、`commands`、`agents`、`plugins`、`.credentials.json` 指向真实 `~/.claude`，`.claude.json` 只保留 project trust 并清空 user MCP。各自的 `--settings`、`--append-system-prompt-file`、`--mcp-config` 和 `--model` 继续按 profile 覆盖，所以用户 `settings.json` 和 user MCP 不会进入会话，而命令和 standalone skills 可用；`ccr-router` 通过 `agents` 符号链接加载，`--agents` 内联定义作为兜底。
 
 模型档位通过环境变量覆盖：
 
