@@ -717,6 +717,18 @@ class Routing(unittest.TestCase):
         self.assertEqual(trailing.returncode, 0, trailing.stderr)
         self.assertNotIn("--home", trailing.stdout)
         self.assertNotIn("--config-dir", trailing.stdout)
+        default_env = {**self.env}
+        default_env.pop("CLAUDE_CONFIG_DIR", None)
+        default = subprocess.run(
+            CCR + ["router", "--resume"],
+            env=default_env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertIn("CLAUDE_CONFIG_DIR=\n", default.stdout)
         doctor = subprocess.run(
             CCR
             + [

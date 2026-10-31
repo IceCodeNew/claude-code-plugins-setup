@@ -279,7 +279,11 @@ def merged_environment(config: Path) -> dict[str, str]:
     Values already exported by the shell win; nothing is written to disk.
     """
     environment = dict(os.environ)
-    environment["CLAUDE_CONFIG_DIR"] = str(config)
+    default_config = Path.home() / ".claude"
+    if os.environ.get("CLAUDE_CONFIG_DIR") or config != default_config:
+        environment["CLAUDE_CONFIG_DIR"] = str(config)
+    else:
+        environment.pop("CLAUDE_CONFIG_DIR", None)
     settings = user_settings(config)
     values = settings.get("env")
     if isinstance(values, dict):
