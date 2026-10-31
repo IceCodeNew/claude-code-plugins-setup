@@ -63,7 +63,7 @@ class UserDocumentation(unittest.TestCase):
         """Given the manual / When Waza is installed / Then check, health and ui are present."""
         setup = (ROOT / "claude-plugins-setup.md").read_text()
         self.assertIn("tw93/Waza", setup)
-        self.assertIn("for s in check health ui; do", setup)
+        self.assertIn("for s in check health hunt learn read think ui write; do", setup)
         for skill in ("check", "health", "ui"):
             self.assertIn(f"`{skill}`", setup)
 

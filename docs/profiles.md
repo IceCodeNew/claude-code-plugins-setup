@@ -69,7 +69,6 @@ claude --bg \
 | `oracle` | Oracle：只读的架构、计划、深度分析、调试假设和第二意见。 | hard | hookify、remember；think、karpathy-guidelines、searching-with-fff；fff |
 | `finder` | Finder：只读的本地代码搜索，返回文件和行号，不写代码。 | medium | hookify；searching-with-fff、ripwire*；fff |
 
-具体技能列表以 `profiles.json` 为准，这里不重复枚举，避免文档和清单漂移。
 `finder`/`librarian` 的分工参考 Amp 的
 [Finder](https://ampcode.com/@amp/plugins/finder.ts)（本地搜索）、
 [The Librarian](https://ampcode.com/news/librarian)（远程代码搜索）和
@@ -133,8 +132,8 @@ Telegram 和 claude-session-driver，因此会使用它们的 MCP/技能；slash
 - **领域**：`quick` / `dev` / `rust` / `go` / `python` / `frontend` / `review` / `librarian` / `oracle` / `finder`。
   前端角色默认使用 oxc（`oxlint`/`oxfmt`）；Go/Python/Rust 角色优先使用 mise 里的最新
   稳定工具链，但不得超出仓库的 `go` 指令、`requires-python` 或 `rust-version`。
-- **档位**：`hard`（设计、调试、跨文件修改、规划、审查、安全）或 `easy`
-  （快速问答、单文件小改、查资料、跑命令）。
+- **档位**：`hard`（设计、调试、跨文件修改、规划、审查、安全）、`medium`
+  （`finder` 的本地搜索）或 `easy`（快速问答、单文件小改、查资料、跑命令）。
 
 `UserPromptSubmit` 上有一个确定性的关键词 hook（`route-hint.py`），它不调用模型，
 只把候选配置和档位信号作为 `<ccr-route-hint>` 注入。它只是提示，最终判断仍由路由
@@ -260,10 +259,9 @@ ccr spawn --profile rust --tier easy --name check --prompt 'noop' --dry-run --js
   是记忆功能本身，按配置启用。
 - **个人技能**：`skillOverrides` 把未归属技能设为 `"off"`。插件自带的技能不受
   `skillOverrides` 影响，跟随插件开关。
-- **MCP**：子会话用 `--mcp-config` 添加 fff，插件自带的 MCP 随插件启用。router 用
-  fff 在每个角色都通过 `--mcp-config` 加载，router 也一样；插件 MCP 随插件启用。没有
-  `--strict-mcp-config`，所以 user/project MCP 也可用；fff 已从 user scope 移除，迁移
-  说明见下，`ccr doctor` 会警告旧注册。
+- **MCP**：所有子会话和 router 都通过 `--mcp-config` 加载 fff；插件自带的 MCP 随插件
+  启用。没有 `--strict-mcp-config`，所以 user/project MCP 也可用；fff 已从 user scope
+  移除，迁移说明见下，`ccr doctor` 会警告旧注册。
 - **用户/项目 settings**：`--setting-sources ""` 全部忽略。项目 `CLAUDE.md` 和用户
   `CLAUDE.md` 仍然通过消息流程加载，这是有意的。
 - **用户 hooks**：不进入任何 `ccr` 会话。需要全局执行的策略应放进配置生成器或

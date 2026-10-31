@@ -87,7 +87,7 @@ Waza、tdd、karpathy-guidelines 等不再从 ninehills 安装，改为直接上
 | `japanese-tech-writing` | 上游 gist | librarian |
 | `fast-rust`、`piglet`、`modular-go`、`friendly-python` | PsiACE/skills | 开发角色：rust / python / go / python；review 不重复 |
 | `reclaim-code-entropy` | Yevanchen/reclaim-code-entropy | dev，与 code-simplifier 同阶段 |
-| `gh-stack`、`reclaim-code-entropy`、`scoped-change`、`worktree-pr`、`ux-writing` | 各自上游 | dev / librarian |
+| `gh-stack`、`scoped-change`、`worktree-pr`、`ux-writing` | 各自上游 | dev / librarian |
 | `thermos*`、`test-audit`、`better-readme`、`searching-with-fff`、`ripwire*`、`code-review-page` | 各自上游 | review / dev / librarian |
 
 不再安装/删除的技能包括：`design`（旧 vendored 名称）、`diagram-design`、`drawio-skill`、

@@ -371,7 +371,7 @@ do
   openskills install "$s" -g -y
 done
 missing=0
-for s in check health ui; do
+for s in check health hunt learn read think ui write; do
   test -f ~/.claude/skills/"$s"/SKILL.md || {
     echo "missing Waza skill: $s" >&2
     missing=1

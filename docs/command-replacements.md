@@ -43,11 +43,11 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 ## 结论
 
 - **命令只提供角色入口/输出契约**：`/plan`、`/research`、`/feature`、`/review`、
-  `/security-check`。纯 prompt 插件（simplifier、commit、claude-code-setup、
-  claude-md-management、hookify、skill-creator）保留原插件，不提供替代命令。
+  `/security-check`。纯 prompt 插件（simplifier、commit、claude-code-setup）保留原插件，
+  不提供替代命令。
 - **插件保留**的是「有运行时/领域资料/独立工具」的插件：security-guidance、
   modern-go/python、pydantic、superpowers、remember、session-driver、
-  modern-web-guidance、claude-md-management。
+  modern-web-guidance、claude-md-management、hookify。
 - `code-review` / `pr-review-toolkit` 的移除理由不是「命令更强」，而是
   `review` 配置已经有 thermos/Trail of Bits 的专用审查技能；如果要求与
   6 个 agent 完全等价的并行度，应恢复 `pr-review-toolkit`。
