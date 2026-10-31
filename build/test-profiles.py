@@ -430,7 +430,7 @@ class Profiles(unittest.TestCase):
             timeout=60,
         )
         self.assertEqual(router.returncode, 0, router.stderr)
-        self.assertIn(f"CCR_SOURCE_DIR={alt_source}", router.stdout)
+        self.assertIn(f"CCR_SOURCE_DIR={alt_source.resolve()}", router.stdout)
 
     def test_router_permissions_do_not_auto_approve_writing_searches(self):
         settings = self.settings("review")

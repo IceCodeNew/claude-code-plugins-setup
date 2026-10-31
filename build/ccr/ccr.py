@@ -1285,7 +1285,7 @@ def cmd_router(
         {
             "CCR_HOME": str(state),
             "CCR_PROFILE": "router",
-            "CCR_SOURCE_DIR": str(root),
+            "CCR_SOURCE_DIR": str(root.resolve()),
         }
     )
     os.execvpe(argv[0], argv, environment)
