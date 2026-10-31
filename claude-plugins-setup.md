@@ -370,6 +370,18 @@ for s in \
 do
   openskills install "$s" -g -y
 done
+missing=0
+for s in check health ui; do
+  test -f ~/.claude/skills/"$s"/SKILL.md || {
+    echo "missing Waza skill: $s" >&2
+    missing=1
+  }
+done
+if [ "$missing" = 0 ]; then
+  ccr refresh --strict
+else
+  echo "install the missing Waza skills, then run: ccr refresh --strict" >&2
+fi
 ```
 
 更新全部 openskills 技能：

@@ -59,6 +59,14 @@ class UserDocumentation(unittest.TestCase):
         self.assertIn("trash-put", alias)
         self.assertIn("false", alias)
 
+    def test_manual_installs_every_required_waza_skill(self):
+        """Given the manual / When Waza is installed / Then check, health and ui are present."""
+        setup = (ROOT / "claude-plugins-setup.md").read_text()
+        self.assertIn("tw93/Waza", setup)
+        self.assertIn("for s in check health ui; do", setup)
+        for skill in ("check", "health", "ui"):
+            self.assertIn(f"`{skill}`", setup)
+
     def test_deleted_plugins_are_not_installed(self):
         """Given the image inventory / When a plugin is deleted / Then neither image nor docs re-add it."""
         dockerfile = (ROOT / "build/Dockerfile").read_text()
