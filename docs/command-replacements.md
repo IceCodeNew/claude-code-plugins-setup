@@ -36,7 +36,7 @@ prompt 的额外资产**；不能证明的是模型每次都会自发执行同�
 | `pydantic` | Pydantic v2 版本化资料 | 无（插件保留） | — | 版本差异和迁移细节是领域资料 | **保留在 python** |
 | `superpowers` | 大量技能/方法论，持续维护 | `/feature`、router 编排 | 只用其中一部分 | 技能库和专用流程不是命令能完整复制的 | **保留在 dev** |
 | `remember` | SessionStart/End hooks、Haiku 压缩、`/remember` handoff | ccr ledger | 跨会话记忆由 remember 承担 | remember 是异步压缩的全局历史，不是当前任务可同步更新的 must-retain 包 | **保留；与 ledger 分工** |
-| `claude-session-driver` | `csd` CLI、tmux、事件流、handoff | `ccr spawn --bg` | 后台自动化由 ccr 承担 | tmux attach/handoff 是插件独有能力 | **保留在 router** |
+| `claude-session-driver` | `csd` CLI、tmux、事件流、handoff | `ccr spawn` | 后台自动化由 ccr 承担 | tmux attach/handoff 是插件独有能力 | **保留在 router** |
 | `modern-web-guidance` | 现代 Web 平台资料/技能 | 无 | — | 平台特性更新快，资料有价值 | **保留在 frontend** |
 | `code-review-page` | skill + renderer + QA 脚本 + schema/references | 无（review 技能） | 块级 HTML 评审页、diff 注释、复杂度热点、英文实现提示 | 需要真实 metrics/QA；不能凭空生成数据 | **保留在 review** |
 

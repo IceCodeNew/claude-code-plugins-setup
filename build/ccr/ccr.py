@@ -18,6 +18,7 @@ single source of truth for plugin, skill, MCP, keyword, and prompt assignments.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import fnmatch
 import json
 import os
@@ -27,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -131,6 +133,20 @@ def write_json(path: Path, data, mode: int = 0o600) -> bool:
     return write_text(path, dump_json(data), mode)
 
 
+@contextmanager
+def ledger_lock(path: Path, shared: bool = False):
+    """Serialize read-modify-write access to one session ledger."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.lock")
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH if shared else fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
 def state_home(explicit: str | None = None) -> Path:
     value = explicit or os.environ.get("CCR_HOME")
     root = Path(value).expanduser() if value else Path.home() / ".local/state/cc-router"
@@ -145,6 +161,11 @@ def state_home(explicit: str | None = None) -> Path:
 def config_dir(explicit: str | None = None) -> Path:
     value = explicit or os.environ.get("CLAUDE_CONFIG_DIR")
     return Path(value).expanduser() if value else Path.home() / ".claude"
+
+
+def config_dir_path(explicit: str | None) -> Path:
+    """Return the config directory without colliding with the parameter name."""
+    return config_dir(explicit)
 
 
 def claude_bin() -> str:
@@ -256,6 +277,7 @@ def merged_environment(config: Path) -> dict[str, str]:
     Values already exported by the shell win; nothing is written to disk.
     """
     environment = dict(os.environ)
+    environment["CLAUDE_CONFIG_DIR"] = str(config)
     settings = user_settings(config)
     values = settings.get("env")
     if isinstance(values, dict):
@@ -338,8 +360,14 @@ def skill_name(directory: Path) -> str:
     return match.group(1).strip().strip("\"'") or directory.name
 
 
-def installed_skills(explicit: str | None = None) -> list[str]:
-    root = Path(explicit).expanduser() if explicit else config_dir() / "skills"
+def installed_skills(
+    explicit: str | None = None, config: Path | None = None
+) -> list[str]:
+    root = (
+        Path(explicit).expanduser()
+        if explicit
+        else (config or config_dir()) / "skills"
+    )
     if not root.is_dir():
         return []
     skills = set()
@@ -746,7 +774,7 @@ def refresh(args) -> int:
     config = config_dir(getattr(args, "config_dir", None))
     hooks_root = hooks_dir()
     plugins = installed_plugins(getattr(args, "plugins_json", None))
-    skills = installed_skills(getattr(args, "skills_dir", None))
+    skills = installed_skills(getattr(args, "skills_dir", None), config)
     profiles = manifest.get("profiles", {})
     if not profiles:
         raise CcrError("profiles.json has no profiles")
@@ -1002,13 +1030,14 @@ def trim_ledger(text: str, limit: int = 96 * 1024) -> str:
 
 
 def append_ledger(path: Path, title: str, body: str, source: str) -> None:
-    current = path.read_text() if path.exists() else ""
-    if not current:
-        current = "# ccr session\n\n## Status log\n"
-    block = f"\n### {now_short()} · {source}\n\n{body.strip()}\n"
-    if title:
-        block = f"\n### {now_short()} · {source} · {title}\n\n{body.strip()}\n"
-    write_text(path, trim_ledger(current.rstrip() + "\n" + block), mode=0o600)
+    with ledger_lock(path):
+        current = path.read_text() if path.exists() else ""
+        if not current:
+            current = "# ccr session\n\n## Status log\n"
+        block = f"\n### {now_short()} · {source}\n\n{body.strip()}\n"
+        if title:
+            block = f"\n### {now_short()} · {source} · {title}\n\n{body.strip()}\n"
+        write_text(path, trim_ledger(current.rstrip() + "\n" + block), mode=0o600)
 
 
 def initial_ledger(record: dict, prompt: str) -> str:
@@ -1142,20 +1171,41 @@ def print_result(data, as_json: bool) -> None:
 # commands
 
 
-def cmd_router(args) -> int:
-    cli_args = args if isinstance(args, list) else list(getattr(args, "cli_args", []))
+def cmd_router(
+    cli_args: list[str],
+    home: str | None = None,
+    source: str | None = None,
+    config_dir: str | None = None,
+) -> int:
     if os.environ.get("CCR_CHILD"):
         raise CcrError("ccr router cannot run inside a ccr child session")
-    _, manifest = profile_manifest()
-    state = state_home()
-    config = config_dir()
+    leading, cli_args = take_all_common(cli_args)
+    home = home or leading.get("home")
+    source = source or leading.get("source")
+    config_dir = config_dir or leading.get("config_dir")
+    state = state_home(home)
+    config = config_dir_path(config_dir)
+    root, manifest = profile_manifest(source)
     index = load_json(state / "index.json")
-    if not index or not (state / "runtime/router-settings.json").is_file():
+    paths = index.get("paths", {}) if isinstance(index, dict) else {}
+    artifacts = (
+        state / "runtime/router-settings.json",
+        state / "runtime/router-mcp.json",
+        state / "runtime/router-prompt.md",
+        config / "agents" / f"{manifest.get('router', {}).get('agent', 'ccr-router')}.md",
+    )
+    stale = (
+        not index
+        or paths.get("source") != str(root)
+        or paths.get("config") != str(config)
+        or any(not path.is_file() for path in artifacts)
+    )
+    if stale:
         refresh(
             argparse.Namespace(
-                source=None,
-                home=None,
-                config_dir=None,
+                source=source,
+                home=home,
+                config_dir=config_dir,
                 plugins_json=None,
                 skills_dir=None,
                 json=False,
@@ -1192,9 +1242,9 @@ def cmd_spawn(args) -> int:
         raise CcrError(
             "Refusing to spawn a ccr child from a child session; report back instead"
         )
-    _, manifest = profile_manifest()
-    state = state_home()
-    config = config_dir()
+    _, manifest = profile_manifest(getattr(args, "source", None))
+    state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     name = args.profile
     if name not in manifest["profiles"]:
         raise CcrError(
@@ -1338,8 +1388,8 @@ def read_message(args) -> str:
 def cmd_send(args) -> int:
     if os.environ.get("CCR_CHILD") and not args.force:
         raise CcrError("A ccr child must not dispatch work")
-    state = state_home()
-    config = config_dir()
+    state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     record = resolve_record(state, args.session)
     message = read_message(args)
     if not message.strip():
@@ -1361,9 +1411,10 @@ def cmd_send(args) -> int:
     if not prompt_file.is_file() or not mcp_file.is_file():
         raise CcrError(f"Session {record['id']} settings are missing; re-spawn it")
     context = context_path(state, record)
-    ledger = context.read_text().strip() if context.exists() else initial_ledger(
-        record, record.get("task", "")
-    )
+    with ledger_lock(context, shared=True):
+        ledger = context.read_text().strip() if context.exists() else initial_ledger(
+            record, record.get("task", "")
+        )
     if args.no_context:
         payload = message
     else:
@@ -1427,7 +1478,7 @@ def cmd_send(args) -> int:
 
 
 def cmd_context(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     record = resolve_record(state, args.session)
     path = context_path(state, record)
     if args.replace is not None or args.append is not None:
@@ -1437,17 +1488,19 @@ def cmd_context(args) -> int:
         if not body or not body.strip():
             raise CcrError("Refusing to write an empty context")
         if args.replace is not None:
-            write_text(path, trim_ledger(body.rstrip() + "\n"), mode=0o600)
+            with ledger_lock(path):
+                write_text(path, trim_ledger(body.rstrip() + "\n"), mode=0o600)
         else:
             append_ledger(path, "router note", body, "router")
         print(f"updated {path}")
         return 0
-    print(path.read_text() if path.exists() else "(no context yet)")
+    with ledger_lock(path, shared=True):
+        print(path.read_text() if path.exists() else "(no context yet)")
     return 0
 
 
 def cmd_checkpoint(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     reference = args.session or os.environ.get("CCR_SESSION_ID")
     if not reference:
         raise CcrError("CCR_SESSION_ID is not set; ccr checkpoint runs in a child")
@@ -1511,7 +1564,7 @@ def last_status(path: Path) -> str:
 
 
 def cmd_list(args) -> int:
-    rows, _ = status_rows(state_home())
+    rows, _ = status_rows(state_home(getattr(args, "home", None)))
     if args.json:
         print(dump_json(rows))
         return 0
@@ -1529,7 +1582,7 @@ def cmd_list(args) -> int:
 
 
 def cmd_status(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     record = resolve_record(state, args.session)
     agents = agents_json()
     agent = find_agent(record, agents)
@@ -1544,7 +1597,7 @@ def cmd_status(args) -> int:
 
 
 def cmd_summary(args) -> int:
-    rows, _ = status_rows(state_home())
+    rows, _ = status_rows(state_home(getattr(args, "home", None)))
     if args.json:
         print(dump_json(rows))
         return 0
@@ -1575,7 +1628,7 @@ def cmd_summary(args) -> int:
 
 
 def cmd_stop(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     record = resolve_record(state, args.session)
     result = run([claude_bin(), "stop", record["id"]], timeout=60)
     print((result.stdout + result.stderr).strip() or f"stopped {record['id']}")
@@ -1583,7 +1636,7 @@ def cmd_stop(args) -> int:
 
 
 def cmd_rm(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     record = resolve_record(state, args.session)
     result = run([claude_bin(), "rm", record["id"]], timeout=60)
     print((result.stdout + result.stderr).strip() or f"removed {record['id']}")
@@ -1600,10 +1653,14 @@ def cmd_rm(args) -> int:
 
 
 def cmd_attach(args) -> int:
-    state = state_home()
+    state = state_home(getattr(args, "home", None))
     record = resolve_record(state, args.session)
     argv = [claude_bin(), "attach", record["id"]]
-    os.execvpe(argv[0], argv, merged_environment(config_dir()))
+    os.execvpe(
+        argv[0],
+        argv,
+        merged_environment(config_dir(getattr(args, "config_dir", None))),
+    )
     return 0
 
 
@@ -1628,8 +1685,8 @@ def cmd_profiles(args) -> int:
 
 
 def cmd_doctor(args) -> int:
-    state = state_home()
-    config = config_dir()
+    state = state_home(getattr(args, "home", None))
+    config = config_dir(getattr(args, "config_dir", None))
     root, manifest = profile_manifest(getattr(args, "source", None))
     errors: list[str] = []
     warnings: list[str] = []
@@ -1655,7 +1712,7 @@ def cmd_doctor(args) -> int:
 
     try:
         plugins = installed_plugins(args.plugins_json)
-        skills = installed_skills(args.skills_dir)
+        skills = installed_skills(args.skills_dir, config)
         assigned_plugins = set(manifest.get("router", {}).get("plugins", []))
         assigned_skills = set()
         for profile in manifest["profiles"].values():
@@ -1800,6 +1857,48 @@ def cmd_doctor(args) -> int:
 # argument parsing
 
 
+def take_all_common(argv: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Remove path options anywhere; used for the router's Claude argument list."""
+    values: dict[str, str] = {}
+    remaining: list[str] = []
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg in {"--home", "--source", "--config-dir"}:
+            if index + 1 >= len(argv):
+                raise CcrError(f"{arg} requires a value")
+            values[arg[2:].replace("-", "_")] = argv[index + 1]
+            index += 2
+        elif arg.startswith(("--home=", "--source=", "--config-dir=")):
+            key, value = arg[2:].split("=", 1)
+            values[key.replace("-", "_")] = value
+            index += 1
+        else:
+            remaining.append(arg)
+            index += 1
+    return values, remaining
+
+
+def take_common(argv: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Consume leading path options; leave everything else for the subcommand."""
+    values: dict[str, str] = {}
+    remaining = list(argv)
+    while remaining:
+        arg = remaining[0]
+        if arg in {"--home", "--source", "--config-dir"}:
+            if len(remaining) < 2:
+                raise CcrError(f"{arg} requires a value")
+            values[arg[2:].replace("-", "_")] = remaining[1]
+            remaining = remaining[2:]
+        elif arg.startswith(("--home=", "--source=", "--config-dir=")):
+            key, value = arg[2:].split("=", 1)
+            values[key.replace("-", "_")] = value
+            remaining = remaining[1:]
+        else:
+            break
+    return values, remaining
+
+
 def add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--home",
@@ -1841,6 +1940,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_router)
 
     p = sub.add_parser("spawn", help="dispatch a background child session")
+    add_common(p)
     p.add_argument("--profile", required=True)
     p.add_argument("--tier", choices=["hard", "medium", "easy"])
     p.add_argument("--name", default="task")
@@ -1859,6 +1959,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_spawn)
 
     p = sub.add_parser("send", help="send a message with the context ledger attached")
+    add_common(p)
     p.add_argument("session")
     p.add_argument("message", nargs="*")
     p.add_argument("--stdin", action="store_true")
@@ -1870,22 +1971,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_send)
 
     p = sub.add_parser("list", help="list ccr sessions")
+    add_common(p)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_list)
 
     p = sub.add_parser("status", help="show one session, its context, and optional logs")
+    add_common(p)
     p.add_argument("session")
     p.add_argument("--logs", action="store_true")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_status)
 
     p = sub.add_parser("context", help="read or update a session's context ledger")
+    add_common(p)
     p.add_argument("session")
     p.add_argument("--append", nargs="?", const="-")
     p.add_argument("--replace", nargs="?", const="-")
     p.set_defaults(func=cmd_context)
 
     p = sub.add_parser("checkpoint", help="append a child status block")
+    p.add_argument("--home", default=argparse.SUPPRESS)
+    p.add_argument("--config-dir", default=argparse.SUPPRESS)
     p.add_argument("message", nargs="*")
     p.add_argument("--session")
     p.add_argument("--stdin", action="store_true")
@@ -1894,18 +2000,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_checkpoint)
 
     p = sub.add_parser("summary", help="compact progress summary for the router")
+    add_common(p)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_summary)
 
     p = sub.add_parser("stop", help="stop a child session")
+    add_common(p)
     p.add_argument("session")
     p.set_defaults(func=cmd_stop)
 
     p = sub.add_parser("rm", help="remove a child session and archive its ledger")
+    add_common(p)
     p.add_argument("session")
     p.set_defaults(func=cmd_rm)
 
     p = sub.add_parser("attach", help="attach to a child session")
+    add_common(p)
     p.add_argument("session")
     p.set_defaults(func=cmd_attach)
 
@@ -1927,8 +2037,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    leading, argv = take_common(argv)
     if not argv:
-        return cmd_router([])
+        return cmd_router([], **leading)
     if argv[0] in {"-h", "--help"}:
         build_parser().print_help()
         return 0
@@ -1936,14 +2047,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ccr {VERSION}")
         return 0
     if argv[0] == "router":
-        return cmd_router(argv[1:])
+        return cmd_router(argv[1:], **leading)
     if argv[0] not in SUBCOMMANDS:
-        return cmd_router(argv)
+        return cmd_router(argv, **leading)
     parser = build_parser()
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
         parser.print_help()
         return 2
+    for key, value in leading.items():
+        if not hasattr(args, key):
+            setattr(args, key, value)
     try:
         return int(args.func(args) or 0)
     except CcrError as error:

@@ -16,7 +16,7 @@ state and your context ledger, not your reasoning.
   ```
 
 - Append a decision, constraint, or newly discovered fact with
-  `ccr context --append -`.
+  `ccr context "$CCR_SESSION_ID" --append -`.
 - Do not spawn other `ccr` profiles. If the task needs a different domain, stop and
   report why; the router will re-dispatch.
 - Keep changes inside the stated scope. Do not change unrelated code.

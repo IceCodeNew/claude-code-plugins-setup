@@ -39,7 +39,7 @@ what happens next. Never paste raw child logs.
   durable ones. The per-session ledger remains the source of truth for the active
   task; remember captures cross-session history, not the task's must-retain packet.
 - For a child a human should be able to attach to, use the claude-session-driver
-  skill / `csd` so it runs in tmux. Use `ccr spawn --bg` for unattended work.
+  skill / `csd` so it runs in tmux. Use `ccr spawn` for unattended work; it starts a background session by default.
 - Keep at most 3 active children unless the user explicitly asks for more.
 - Use the cheapest tier that can do the job:
   - `easy`: a tiny answer, a one-file small edit, running a command, or remote

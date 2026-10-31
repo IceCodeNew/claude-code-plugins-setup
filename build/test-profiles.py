@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -58,6 +59,7 @@ def skill_names(manifest: dict) -> list[str]:
 
 FAKE_CLAUDE = """#!/usr/bin/env python3
 import json
+import os
 import sys
 
 args = sys.argv[1:]
@@ -75,6 +77,7 @@ elif "--version" in args:
 elif "mcp" in args:
     sys.exit(1)
 elif "--agent" in args:
+    print("CLAUDE_CONFIG_DIR=" + os.environ.get("CLAUDE_CONFIG_DIR", ""))
     print(" ".join(args))
 elif "--disable-slash-commands" in args:
     print(" ".join(args))
@@ -246,6 +249,9 @@ class Profiles(unittest.TestCase):
         self.assertIn("ccr spawn", router)
         for name in self.manifest["profiles"]:
             self.assertIn(f"`{name}`", router)
+        contract = (self.state / "profiles/rust/prompt.md").read_text()
+        self.assertIn('ccr context "$CCR_SESSION_ID" --append -', contract)
+        self.assertNotIn("ccr spawn --bg", router + contract)
 
     def test_commands_are_installed_model_invocable_and_marked(self):
         commands = self.config / "commands"
@@ -564,6 +570,151 @@ class Routing(unittest.TestCase):
         records = list((self.state / "sessions").glob("*/record.json"))
         self.assertEqual(len(records), 1)
         return records[0].parent.name
+
+    def test_concurrent_context_appends_keep_every_write(self):
+        spawned = self.ccr(
+            "spawn",
+            "--profile",
+            "rust",
+            "--tier",
+            "easy",
+            "--name",
+            "concurrent",
+            "--prompt",
+            "keep every note",
+            "--json",
+        )
+        self.assertEqual(spawned.returncode, 0, spawned.stderr)
+        local_id = self._local_id()
+        processes = [
+            subprocess.Popen(
+                CCR + ["context", local_id, "--append", f"note-{index}"],
+                env=self.env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for index in range(12)
+        ]
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=30)
+            self.assertEqual(process.returncode, 0, stdout + stderr)
+        ledger = (self.state / "sessions" / local_id / "context.md").read_text()
+        for index in range(12):
+            self.assertIn(f"note-{index}", ledger)
+
+    def test_global_path_options_are_consumed_and_used(self):
+        alt_state = self.root / "alt-state"
+        alt_config = self.root / "alt-config"
+        shutil.copytree(self.skills, alt_config / "skills")
+        (alt_config / "skills/alt-only").mkdir()
+        (alt_config / "skills/alt-only/SKILL.md").write_text(
+            "---\nname: alt-only\ndescription: alternate config\n---\n"
+        )
+        env = {**self.env}
+        env.pop("CCR_HOME", None)
+        env.pop("CLAUDE_CONFIG_DIR", None)
+        refresh = subprocess.run(
+            CCR
+            + [
+                "--home",
+                str(alt_state),
+                "--config-dir",
+                str(alt_config),
+                "refresh",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(refresh.returncode, 0, refresh.stderr)
+        self.assertTrue((alt_state / "profiles/rust/settings.json").is_file())
+        self.assertTrue((alt_config / "agents/ccr-router.md").is_file())
+        alt_settings = json.loads(
+            (alt_state / "profiles/rust/settings.json").read_text()
+        )
+        self.assertIn("alt-only", alt_settings["skillOverrides"])
+        shutil.rmtree(alt_config / "skills/alt-only")
+        router = subprocess.run(
+            CCR
+            + [
+                "--home",
+                str(alt_state),
+                "--config-dir",
+                str(alt_config),
+                "router",
+                "--resume",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(router.returncode, 0, router.stderr)
+        self.assertNotIn("--home", router.stdout)
+        self.assertNotIn("--config-dir", router.stdout)
+        self.assertIn(str(alt_state / "runtime/router-settings.json"), router.stdout)
+        self.assertIn(f"CLAUDE_CONFIG_DIR={alt_config}", router.stdout)
+        second_config = self.root / "second-config"
+        shutil.copytree(self.skills, second_config / "skills")
+        switched = subprocess.run(
+            CCR
+            + [
+                "--home",
+                str(alt_state),
+                "--config-dir",
+                str(second_config),
+                "router",
+                "--resume",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(switched.returncode, 0, switched.stderr)
+        self.assertTrue((second_config / "agents/ccr-router.md").is_file())
+        self.assertIn(f"CLAUDE_CONFIG_DIR={second_config}", switched.stdout)
+        trailing = subprocess.run(
+            CCR
+            + [
+                "router",
+                "--resume",
+                "--home",
+                str(alt_state),
+                "--config-dir",
+                str(alt_config),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(trailing.returncode, 0, trailing.stderr)
+        self.assertNotIn("--home", trailing.stdout)
+        self.assertNotIn("--config-dir", trailing.stdout)
+        doctor = subprocess.run(
+            CCR
+            + [
+                "doctor",
+                "--home",
+                str(alt_state),
+                "--config-dir",
+                str(alt_config),
+                "--no-preflight",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(doctor.returncode, 0, doctor.stdout + doctor.stderr)
 
     def test_router_uses_agent_profile_and_fff_mcp(self):
         result = self.ccr("router", "--resume")
