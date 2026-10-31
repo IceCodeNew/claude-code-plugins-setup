@@ -320,6 +320,25 @@ class Profiles(unittest.TestCase):
         self.assertFalse((self.config / "commands/simplify.md").exists())
         self.assertFalse((self.config / "commands/commit.md").exists())
 
+    def test_router_permissions_do_not_auto_approve_writing_searches(self):
+        settings = self.settings("review")
+        permissions = settings["permissions"]
+        self.assertNotIn("Bash(rg *)", permissions["allow"])
+        self.assertNotIn("Bash(find *)", permissions["allow"])
+        self.assertNotIn("Bash(git diff *)", permissions["allow"])
+        self.assertNotIn("Bash(git log *)", permissions["allow"])
+        self.assertNotIn("Bash(git show *)", permissions["allow"])
+        self.assertIn("Bash(git diff *--output*)", permissions["deny"])
+        self.assertIn("Bash(git show *--output*)", permissions["deny"])
+        router = json.loads((self.state / "runtime/router-settings.json").read_text())
+        self.assertNotIn("Bash(rg *)", router["permissions"]["allow"])
+        self.assertNotIn("Bash(find *)", router["permissions"]["allow"])
+        self.assertNotIn("Bash(git diff *)", router["permissions"]["allow"])
+        self.assertNotIn("Bash(git log *)", router["permissions"]["allow"])
+        self.assertNotIn("Bash(git show *)", router["permissions"]["allow"])
+        self.assertIn("Bash(git diff *--output*)", router["permissions"]["deny"])
+        self.assertIn("Bash(git show *--output*)", router["permissions"]["deny"])
+
     def test_finder_is_medium_and_librarian_is_easy(self):
         self.assertEqual(self.manifest["profiles"]["finder"]["tier"], "medium")
         self.assertEqual(self.manifest["profiles"]["librarian"]["tier"], "easy")

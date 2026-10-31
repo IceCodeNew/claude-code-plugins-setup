@@ -246,6 +246,8 @@ def run(
         raise CcrError(f"Command not found: {argv[0]}") from error
     except subprocess.TimeoutExpired as error:
         raise CcrError(f"Timed out after {timeout}s: {' '.join(argv[:3])}") from error
+    except OSError as error:
+        raise CcrError(f"Cannot run {argv[0]}: {error}") from error
 
 
 def profile_manifest(explicit: str | None = None) -> tuple[Path, dict]:
@@ -406,12 +408,7 @@ def base_permissions(profile: dict) -> dict:
             "Bash(ccr checkpoint *)",
             "Bash(ccr context *)",
             "Bash(git status *)",
-            "Bash(git diff *)",
-            "Bash(git log *)",
-            "Bash(git show *)",
             "Bash(ls *)",
-            "Bash(rg *)",
-            "Bash(find *)",
             "Bash(jq *)",
         ],
         "ask": [
@@ -426,7 +423,11 @@ def base_permissions(profile: dict) -> dict:
             "Bash(uv add *)",
             "Bash(cargo install *)",
         ],
-        "deny": [],
+        "deny": [
+            "Bash(git diff *--output*)",
+            "Bash(git log *--output*)",
+            "Bash(git show *--output*)",
+        ],
     }
     extra = profile.get("permissions") or {}
     for key in ("allow", "ask", "deny"):
@@ -450,16 +451,18 @@ def router_permissions() -> dict:
             "Bash(claude stop *)",
             "Bash(claude rm *)",
             "Bash(git status *)",
-            "Bash(git diff *)",
-            "Bash(git log *)",
-            "Bash(git show *)",
             "Bash(ls *)",
-            "Bash(rg *)",
-            "Bash(find *)",
             "Bash(jq *)",
         ],
         "ask": ["Bash(git push *)"],
-        "deny": ["Edit", "Write", "NotebookEdit"],
+        "deny": [
+            "Edit",
+            "Write",
+            "NotebookEdit",
+            "Bash(git diff *--output*)",
+            "Bash(git log *--output*)",
+            "Bash(git show *--output*)",
+        ],
         "defaultMode": "default",
     }
 
@@ -1020,13 +1023,40 @@ def context_path(state: Path, record: dict) -> Path:
 def trim_ledger(text: str, limit: int = 96 * 1024) -> str:
     if len(text.encode()) <= limit:
         return text
+
+    def head_bytes(value: str, size: int) -> str:
+        return value.encode()[:size].decode(errors="ignore")
+
+    def tail_bytes(value: str, size: int) -> str:
+        if size <= 0:
+            return ""
+        return value.encode()[-size:].decode(errors="ignore")
+
     marker = "\n## Status log"
-    if marker in text:
-        head, _, tail = text.partition(marker)
-        keep = max(16 * 1024, limit // 2)
-        tail = tail[-keep:]
-        return head + marker + "\n\n(older status entries trimmed)\n" + tail
-    return text[-limit:]
+    if marker not in text:
+        return tail_bytes(text, limit)
+
+    head, _, tail = text.partition(marker)
+    notice = "\n\n(older status entries trimmed)\n"
+    overhead = len(marker.encode()) + len(notice.encode())
+    if overhead >= limit:
+        return tail_bytes(text, limit)
+    available = limit - overhead
+    head_size = len(head.encode())
+    tail_size = len(tail.encode())
+    if head_size <= available:
+        head_limit = head_size
+        tail_limit = min(tail_size, available - head_limit)
+    else:
+        head_limit = min(head_size, max(8 * 1024, available // 2), available)
+        tail_limit = max(0, available - head_limit)
+    result = (
+        head_bytes(head, head_limit)
+        + marker
+        + notice
+        + tail_bytes(tail, tail_limit)
+    )
+    return result
 
 
 def append_ledger(path: Path, title: str, body: str, source: str) -> None:
@@ -1425,6 +1455,13 @@ def cmd_send(args) -> int:
             "<ccr-message>\n"
             f"{message.strip()}\n"
             "</ccr-message>\n"
+        )
+    if len(payload.encode()) > 120 * 1024:
+        if args.no_context or len(message.encode()) > 120 * 1024:
+            raise CcrError("Message exceeds 120 KiB; shorten the message")
+        raise CcrError(
+            "Message plus ledger exceeds 120 KiB; compact it with "
+            f"`ccr context {record['id']} --replace -`"
         )
     argv = [
         claude_bin(),
