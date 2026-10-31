@@ -41,6 +41,10 @@ class UserDocumentation(unittest.TestCase):
                         self.assertTrue(destination.is_file(), target)
                         self.assertIn(anchor, anchors(destination.read_text()), target)
 
+    def test_maintainer_docs_directory_is_absent(self):
+        """Given the trimmed repository / When docs are inspected / Then no maintainer docs directory remains."""
+        self.assertFalse((ROOT / "docs").exists())
+
     def test_user_sees_runnable_image_usage_before_internal_details(self):
         """Given the README / When first opened / Then build and login precede internals."""
         text = (ROOT / "README.md").read_text()

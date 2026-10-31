@@ -271,8 +271,7 @@ done
 [4.8 的 `ccr refresh`](#48-路由配置与-ccr) 后，每个配置的 `settings.json` 会显式禁用
 其他插件并启用自己的插件。44 个插件都有归属：42 个按角色启用，`skill-creator`、`redis-development` 保留原禁用状态。
 
-插件与技能的维护状态、最后维护日期和卸载命令见[配置审计](docs/audit.md)和
-[命令替代证据](docs/command-replacements.md)。
+插件清单和 Dockerfile 是安装内容的来源。
 
 环境安装 44 个插件（42 启用、2 禁用）。这样临时启用、排障和切换配置都不需要重新联网；配置层只决定
 `enabledPlugins` 和 `skillOverrides`。镜像只包含清单中的插件；未列出的插件不存在。
@@ -608,7 +607,7 @@ push 需明确指定目标；不接受未知的变量展开、批量或通配 re
 
 `ccr` 是唯一日常入口。它读取 [profiles.json](build/profiles/profiles.json)，生成每个配置的
 settings、prompt、mcp 和 router agent，然后用后台会话分发任务。完整协议见
-[docs/profiles.md](docs/profiles.md)。
+[README 日常入口](README.md#日常入口)。
 
 镜像已包含 `/usr/local/bin/ccr` 和 `/opt/cc-router`，首次登录后直接运行：
 
@@ -621,8 +620,8 @@ ccr
 进入子会话后可以一键调用 `~/.claude/commands/` 下的命令，例如 `/plan`、
 `/research`、`/feature`、`/review`、`/security-check`。
 路由保留命令可见，但 prompt 要求实现类命令分发给对应配置，只有只读的 `/plan`、
-`/research` 可按用户明确要求原地执行。命令清单见
-[配置与命令](docs/profiles.md#命令把内化能力做成一次点击)。
+`/research` 可按用户明确要求原地执行。命令来源见
+[build/profiles/commands](build/profiles/commands)。
 
 手动安装时，把脚本和 profile 源放到用户目录。`ccr` 会依次查找
 `$CCR_SOURCE_DIR`、`/opt/cc-router`、`~/.local/share/cc-router`：
