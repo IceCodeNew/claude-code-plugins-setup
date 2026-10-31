@@ -660,7 +660,9 @@ ccr refresh
 
 升级插件或技能后重新运行 `ccr refresh`；持久化 home 的启动脚本也会自动执行。旧的
 user-scope fff 按 4.4 移除。`ccr` 不修改用户 `settings.json`，只写
-`~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。
+`~/.claude/agents/ccr-router.md`（已有文件先备份为 `.bak`）。路由会话用
+`--setting-sources ""` 启动，用户级 agents 不会加载，所以 `ccr` 还会用 `--agents`
+把同一份定义内联传给 Claude Code；该文件只供手动 `claude --agent ccr-router` 使用。
 
 `ccr doctor` 会提示 user settings 中已启用的插件被 ccr 忽略。这是预期结果：plain `claude`
 仍按用户 `settings.json` 加载插件，各配置的启用集合只由 `ccr` 生成的文件决定。

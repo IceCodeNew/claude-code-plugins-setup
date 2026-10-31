@@ -86,6 +86,22 @@ elif "--version" in args:
 elif "mcp" in args:
     sys.exit(1)
 elif "--agent" in args:
+    # Claude Code hides user-level agents when --setting-sources is empty, so
+    # only an inline --agents definition can satisfy --agent in a ccr router.
+    name = args[args.index("--agent") + 1]
+    sources = ""
+    if "--setting-sources" in args:
+        sources = args[args.index("--setting-sources") + 1]
+    inline = {}
+    if "--agents" in args:
+        inline = json.loads(args[args.index("--agents") + 1])
+    if name not in inline and "user" not in sources.split(","):
+        print(
+            "--agent %r not found. Available agents: claude, Explore, "
+            "general-purpose, Plan" % name,
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print("CLAUDE_CONFIG_DIR=" + os.environ.get("CLAUDE_CONFIG_DIR", ""))
     print("CCR_SOURCE_DIR=" + os.environ.get("CCR_SOURCE_DIR", ""))
     print(" ".join(args))
@@ -876,6 +892,28 @@ class Routing(unittest.TestCase):
         self.assertNotIn("--strict-mcp-config", result.stdout)
         self.assertIn("--mcp-config", result.stdout)
         self.assertIn("--setting-sources", result.stdout)
+
+    def test_router_agent_is_passed_inline(self):
+        # --setting-sources "" hides ~/.claude/agents, so the router agent must
+        # travel with the session instead of relying on user-level discovery.
+        result = self.ccr("router", "--resume")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--agents ", result.stdout)
+        payload = result.stdout.split("--agents ", 1)[1].split(
+            " --mcp-config", 1
+        )[0]
+        agents = json.loads(payload)
+        self.assertEqual(set(agents), {"ccr-router"})
+        definition = agents["ccr-router"]
+        self.assertEqual(definition["model"], "haiku")
+        self.assertEqual(
+            definition["disallowedTools"],
+            ["Edit", "Write", "NotebookEdit", "Agent", "Workflow"],
+        )
+        self.assertEqual(
+            definition["prompt"],
+            (self.state / "runtime/router-prompt.md").read_text(),
+        )
 
     def test_orphan_plugin_fails_strict_refresh(self):
         inventory = self.root / "orphan.json"
