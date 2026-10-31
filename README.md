@@ -47,9 +47,9 @@ ccr summary         # 汇总各子会话进度
 
 | 功能 | 默认行为与说明 |
 |---|---|
-| 路由配置 | `ccr` 是唯一用户入口；负责意图判断、后台子会话分发、上下文 ledger、进度汇总，以及 nmem/ops 集成；[配置与命令](docs/profiles.md) |
-| 角色命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`；模型和用户都可调用；[命令表](docs/profiles.md#命令把内化能力做成一次点击) |
-| 审查页面 | `review` 角色启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，可生成块级 HTML 评审页、diff 注释、复杂度热点和英文实现提示；[说明](docs/profiles.md) |
+| 路由配置 | `ccr` 是唯一用户入口；负责意图判断、后台子会话分发、上下文 ledger、进度汇总，以及 nmem/ops 集成；[配置清单](build/profiles/profiles.json) |
+| 角色命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`；模型和用户都可调用；[命令来源](build/profiles/commands) |
+| 审查页面 | `review` 角色启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，可生成块级 HTML 评审页、diff 注释、复杂度热点和英文实现提示 |
 | 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能按配置用 `skillOverrides` 隐藏；前端角色默认使用 [oxc](https://oxc.rs/) 的 `oxlint`/`oxfmt` |
 | Claude 插件 | 只安装一次到 user scope，由各配置的 `enabledPlugins` 启用；[清单](claude-plugins.tsv)的最后一列是归属 |
 | fff MCP | 所有角色和 router 都通过 `--mcp-config` 加载；不注册到 user scope；[作用域与搜索技能](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
@@ -61,9 +61,6 @@ ccr summary         # 汇总各子会话进度
 
 ## 文档
 
-- [路由配置与专业配置](docs/profiles.md)：隔离原理、角色表、路由协议、模型档位、上下文管理、迁移和验证。
-- [配置审计](docs/audit.md)：移除/保留插件与技能的详细理由、最后维护日期和 ninehills 直装说明。
-- [命令替代证据](docs/command-replacements.md)：逐个对照插件源码、命令覆盖范围和明确丢失项。
 - [安装手册](claude-plugins-setup.md)：工具、插件、技能、MCP、hooks、认证和验证。
 - [插件清单](claude-plugins.tsv)：安装状态和配置归属快照，不是版本锁文件。
 - [配置清单](build/profiles/profiles.json)：插件、技能、MCP、关键词、模型和 prompt 的单一来源。
