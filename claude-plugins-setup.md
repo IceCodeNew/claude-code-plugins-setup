@@ -315,7 +315,7 @@ Cloudflare CLI 与技能分开安装。Cloudflare 在 [cloudflare/skills](https:
 早期用 `ninehills/skills` 的 `skills-manager scenarios install Common` 整组安装 34 个
 技能。Common 是 vendored 副本集合：`design` 已在上游改名 `ui`；`diagram-design`
 的父目录软链接导致顶层没有 `SKILL.md`，实际不会加载；不需要的技能也会进入
-`~/.claude/skills`。本仓库已移除 Common 安装，改为只从上游直装保留的技能（4.3）。
+`~/.claude/skills`。技能从各自上游直接安装（4.3）；ninehills 只提供自有 `tech-doc-style-chinese`。
 
 | 保留技能 | 上游 | 位置 |
 |---|---|---|
