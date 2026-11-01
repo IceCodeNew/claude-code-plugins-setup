@@ -618,6 +618,10 @@ ccr doctor --strict
 ccr
 ```
 
+`ccr` 默认以 Claude Code 的 `auto` 权限模式启动，派生的子会话默认继承同一模式；`ccr spawn --permission-mode <mode>` 可对单次派发覆盖。需要跳过全部权限检查时运行 `ccr yolo`，它以 `bypassPermissions` 启动路由，子会话也继承。`auto` 是否可用取决于账号、提供商和模型；不可用时 Claude Code 回退到 Manual。细节见 [Claude Code 权限模式](https://code.claude.com/docs/en/permission-modes)。
+
+进度汇报和提问规则（每 10 分钟汇报、卡点重试、8 分钟等待、中文提问格式）统一维护在 [router prompt](build/profiles/prompts/router.md) 的 “Progress, blockers, and questions” 一节；README 只引用这一处。
+
 进入子会话后可以调用 `~/.claude/commands/` 下的命令，例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`。路由保留命令可见，但 prompt 要求实现类命令分发给对应配置；只有只读的 `/plan`、`/research` 可按用户明确要求原地执行。命令来源见 [build/profiles/commands](build/profiles/commands)。
 
 手动安装时，把脚本和 profile 源放到用户目录。`ccr` 依次查找 `$CCR_SOURCE_DIR`、`/opt/cc-router`、`~/.local/share/cc-router`：
