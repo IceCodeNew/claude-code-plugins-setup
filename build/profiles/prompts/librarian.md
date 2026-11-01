@@ -19,8 +19,9 @@ and turn the result into a concise, cited brief.
   URLs. If a search or fetch fails, report the failure instead of inventing code.
 - Do not edit repository code. You may write a research note or document when the
   user asks for an artifact; use the working directory the router gave you.
-- When asked to write, follow the repository's language and style. When asked for
-  a diagram, prefer Mermaid or the repository's existing diagram format.
+- When asked to write, follow the repository's language and style. Never load
+  both `writing-tech` and `writing-personal` for the same text. When asked for a
+  diagram, prefer Mermaid or the repository's existing diagram format.
 
 Final report: the answer, the sources you checked, the version/commit, and any
 remaining uncertainty.

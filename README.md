@@ -1,10 +1,8 @@
 # claude-code-plugins-setup
 
-预装开发工具、Claude Code 插件与技能的 Linux 开发镜像，附带使用 mise 和 uv 的[手动安装手册](claude-plugins-setup.md)。镜像包含 Claude Code、Codex、Chromium、fff MCP、Entire CLI 和可选安全 hooks；各服务的登录凭据需自行配置。
+预装 Claude Code、Codex、Chromium、fff MCP、Entire CLI 和可选安全 hooks 的 Linux 开发镜像。按角色隔离插件、技能和 hooks，适合单人使用的 Claude Code 开发机。
 
-它适合想要一台**开箱即用、可按角色隔离插件与 hooks** 的 Claude Code 开发机的用户。日常只进入一个路由配置 `ccr`，由它把任务分给 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle`、`finder` 等后台子会话，并维护每个子会话的上下文。
-
-## 快速使用
+## 快速开始
 
 前置条件：Docker Buildx、SSH 客户端和可用的 SSH 公钥。
 
@@ -16,11 +14,13 @@ docker run -d --name claude-dev -p 8964:8964 \
 ssh -p 8964 nonroot@localhost
 ```
 
-容器只接受公钥登录，以 nonroot（UID 65532）运行 sshd。nonroot 有免密 sudo，适合作为可信开发环境，不应作为多租户安全隔离。
+容器以 nonroot（UID 65532）运行 sshd，只接受公钥登录。nonroot 有免密 sudo，适合可信开发环境，不用于多租户隔离。
 
-首次登录后完成[认证](claude-plugins-setup.md#5-登录与认证)，再按[验证步骤](claude-plugins-setup.md#6-验证)检查工具。无需容器时，从[手动安装](claude-plugins-setup.md#1-系统包和-mise)开始。
+首次登录后完成[认证](claude-plugins-setup.md#5-登录与认证)，再按[验证](claude-plugins-setup.md#6-验证)检查工具。不使用容器时，从[手动安装](claude-plugins-setup.md#1-系统包和-mise)开始。
 
-## 日常入口
+## 日常使用
+
+`ccr` 是唯一日常入口，负责意图判断、后台子会话分发和上下文维护。
 
 ```bash
 ccr                 # 启动路由（唯一日常入口）
@@ -32,32 +32,23 @@ PROMPT
 ccr summary         # 汇总各子会话进度
 ```
 
-路由自己只加载记忆、运维和会话编排插件，不加载实现类领域插件；`fp-check` 这类带全局 hooks 的插件只在 `review` 配置启用。路由和子会话统一用 `--setting-sources user` 加载 `~/.local/state/cc-router/claude/`（由 `ccr refresh` 生成）：其中 `settings.json` 只保留 `theme` 等少量偏好、不复制用户设置，`skills`、`commands`、`agents`、`plugins`、`.credentials.json` 指向真实 `~/.claude`，`.claude.json` 只保留 project trust 并清空 user MCP。各自的 `--settings`、`--append-system-prompt-file`、`--mcp-config` 和 `--model` 继续按 profile 覆盖，所以用户 `settings.json` 和 user MCP 不会进入会话，而命令和 standalone skills 可用；`ccr-router` 通过 `agents` 符号链接加载，`--agents` 内联定义作为兜底。
+路由只加载记忆、运维和会话编排插件。`quick` 和 `finder` 只保留搜索能力，其余角色按需启用实现、审查或写作插件。模型档位见[路由配置](claude-plugins-setup.md#48-路由配置与-ccr)，插件与写作组合见[插件归属](claude-plugins-setup.md#31-插件归属)。
 
-模型档位通过环境变量覆盖：
+## 功能范围
 
-| 档位 | 默认 | 典型角色 |
-|---|---|---|
-| `CCR_ROUTER_MODEL` | `haiku` | 路由本身 |
-| `CCR_EASY_MODEL` | `haiku` | `quick`、`librarian` |
-| `CCR_MEDIUM_MODEL` | `sonnet` | `finder` |
-| `CCR_HARD_MODEL` | `opus` | `oracle`、`dev`、`review` 等 |
-
-## 使用范围
-
-| 功能 | 默认行为与说明 |
+| 功能 | 说明 |
 |---|---|
-| 路由配置 | `ccr` 是唯一用户入口；负责意图判断、后台子会话分发、上下文 ledger、进度汇总，以及 nmem/ops 集成；[配置清单](build/profiles/profiles.json) |
-| 角色命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`；模型和用户都可调用；[命令来源](build/profiles/commands) |
-| 审查页面 | `review` 角色启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，可生成块级 HTML 评审页、diff 注释、复杂度热点和英文实现提示 |
-| 工具与技能 | mise 管理命令行工具，uv 管理共享 Python 环境；独立技能按配置用 `skillOverrides` 隐藏；前端角色默认使用 [oxc](https://oxc.rs/) 的 `oxlint`/`oxfmt` |
-| Claude 插件 | 只安装一次到 user scope，由各配置的 `enabledPlugins` 启用；[清单](claude-plugins.tsv)的最后一列是归属 |
-| fff MCP | 所有角色和 router 都通过 `--mcp-config` 加载；不注册到 user scope；[作用域与搜索技能](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
-| Entire | 通过 mise 安装 CLI 和官方插件，不自动启用会话记录；[启用与上传范围](claude-plugins-setup.md#45-entire-cli-与官方技能) |
-| 安全 hooks | 独立 Python hooks 限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；按配置注册，`ccr refresh` 尊重用户启停选择；[按需启停与跨 harness 使用](claude-plugins-setup.md#46-安全-hooks) |
-| 文件回收 | 安装 trash-cli；交互式 `rm` 仅提醒使用 `trash-put` 并返回失败，不把 `rm` 参数自动改写为回收操作 |
+| 路由与角色 | `ccr` 分发 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle`、`finder`；[配置清单](build/profiles/profiles.json) |
+| 角色命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`；[命令来源](build/profiles/commands) |
+| 审查页面 | `review` 启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，生成块级 HTML 评审页、diff 注释和复杂度热点 |
+| 写作技能 | `writing-*` 按角色启用，技术角色与 `librarian` 使用不同的 genre 和语言组合；[组合](claude-plugins-setup.md#32-写作技能组合) |
+| 工具与技能 | mise 管理 CLI，uv 管理共享 Python 环境；独立技能按配置用 `skillOverrides` 隐藏；前端默认使用 [oxc](https://oxc.rs/) 的 `oxlint`/`oxfmt` |
+| fff MCP | 所有角色和 router 通过 `--mcp-config` 加载；[作用域与搜索技能](claude-plugins-setup.md#44-fff-mcp-与搜索技能) |
+| Entire | 安装 CLI 和官方插件，不自动启用会话记录；[启用与上传范围](claude-plugins-setup.md#45-entire-cli-与官方技能) |
+| 安全 hooks | 限制 `rm`、受保护分支写入和 dev server，提供编辑后检查；[按需启停](claude-plugins-setup.md#46-安全-hooks) |
+| 文件回收 | 安装 trash-cli；交互式 `rm` 只提示 `trash-put` 并返回失败 |
 
-重建容器前可将 `/home/nonroot` 挂载为卷保留状态。持久卷也会遮住新镜像中的工具、插件和技能；升级方法见[持久化 home](claude-plugins-setup.md#持久化-home-的注册修复)。MCP 注册补齐不等于整体升级该卷。启动脚本会运行 `ccr refresh`，让持久化 home 里的配置跟随已安装插件重新生成。
+容器可把 `/home/nonroot` 挂载为卷保留状态。持久卷会遮住新镜像中的工具、插件和技能；升级方法见[持久化 home](claude-plugins-setup.md#49-持久化-home)。
 
 ## 文档
 

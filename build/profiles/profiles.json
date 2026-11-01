@@ -41,9 +41,7 @@
       "tier": "easy",
       "permissionMode": "acceptEdits",
       "effort": "low",
-      "plugins": [
-        "hookify@claude-plugins-official"
-      ],
+      "plugins": [],
       "skills": [
         "searching-with-fff"
       ],
@@ -93,7 +91,10 @@
         "commit-commands@claude-plugins-official",
         "claude-code-setup@claude-plugins-official",
         "hookify@claude-plugins-official",
-        "gh-cli@trailofbits"
+        "gh-cli@trailofbits",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "tdd",
@@ -148,7 +149,10 @@
         "rust-analyzer-lsp@claude-plugins-official",
         "remember@claude-plugins-official",
         "hookify@claude-plugins-official",
-        "gh-cli@trailofbits"
+        "gh-cli@trailofbits",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "searching-with-fff",
@@ -202,7 +206,10 @@
         "rust-review@trailofbits",
         "rust-analyzer-lsp@claude-plugins-official",
         "remember@claude-plugins-official",
-        "hookify@claude-plugins-official"
+        "hookify@claude-plugins-official",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "thermos",
@@ -256,17 +263,18 @@
         "github@claude-plugins-official",
         "context7@claude-plugins-official",
         "remember@claude-plugins-official",
-        "hookify@claude-plugins-official"
+        "hookify@claude-plugins-official",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style",
+        "writing-personal@elements-of-style",
+        "writing-ja@elements-of-style"
       ],
       "skills": [
         "read",
         "write",
         "learn",
-        "tech-doc-style-chinese",
-        "ux-writing",
-        "better-readme",
-        "searching-with-fff",
-        "japanese-tech-writing"
+        "searching-with-fff"
       ],
       "mcp": [
         "fff"
@@ -316,7 +324,10 @@
         "remember@claude-plugins-official",
         "modern-go-guidelines@goland-claude-marketplace",
         "hookify@claude-plugins-official",
-        "gh-cli@trailofbits"
+        "gh-cli@trailofbits",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "searching-with-fff",
@@ -353,7 +364,10 @@
         "modern-python@trailofbits",
         "pydantic@pydantic-skills",
         "hookify@claude-plugins-official",
-        "gh-cli@trailofbits"
+        "gh-cli@trailofbits",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "friendly-python",
@@ -387,7 +401,10 @@
       "effort": "high",
       "plugins": [
         "remember@claude-plugins-official",
-        "hookify@claude-plugins-official"
+        "hookify@claude-plugins-official",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "think",
@@ -444,7 +461,10 @@
         "typescript-lsp@claude-plugins-official",
         "remember@claude-plugins-official",
         "hookify@claude-plugins-official",
-        "gh-cli@trailofbits"
+        "gh-cli@trailofbits",
+        "writing-tech@elements-of-style",
+        "writing-en@elements-of-style",
+        "writing-zh@elements-of-style"
       ],
       "skills": [
         "searching-with-fff",
@@ -490,9 +510,7 @@
       "tier": "medium",
       "permissionMode": "plan",
       "effort": "low",
-      "plugins": [
-        "hookify@claude-plugins-official"
-      ],
+      "plugins": [],
       "skills": [
         "searching-with-fff",
         "ripwire*"
@@ -539,7 +557,10 @@
     "skill-creator@claude-plugins-official": "Originally disabled; kept installed with the skill-creation command available.",
     "redis-development@claude-plugins-official": "Originally disabled; not enabled by any profile."
   },
-  "unassignedSkills": {},
+  "unassignedSkills": {
+    "ux-writing": "Installed for UI and UX text work; not default-loaded because the writing-* plugins cover general prose and this skill is task-specific.",
+    "better-readme": "Installed for README structure work; not default-loaded because the writing-* plugins cover the prose rules and this skill is task-specific."
+  },
   "mcpServers": {
     "fff": {
       "type": "stdio",

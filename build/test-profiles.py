@@ -387,6 +387,91 @@ class Profiles(unittest.TestCase):
             set(self.manifest["router"].get("skills", [])),
         )
 
+    def test_writing_skills_are_role_scoped(self):
+        default = {
+            "writing-tech@elements-of-style",
+            "writing-en@elements-of-style",
+            "writing-zh@elements-of-style",
+        }
+        for name in self.manifest["profiles"]:
+            enabled = {
+                plugin
+                for plugin, value in self.settings(name)["enabledPlugins"].items()
+                if value
+            }
+            expected = set() if name in {"quick", "finder"} else set(default)
+            if name == "librarian":
+                expected.update(
+                    {
+                        "writing-personal@elements-of-style",
+                        "writing-ja@elements-of-style",
+                    }
+                )
+            self.assertEqual(
+                {plugin for plugin in enabled if plugin.startswith("writing-")},
+                expected,
+                name,
+            )
+        router = json.loads(
+            (self.state / "runtime/router-settings.json").read_text()
+        )
+        self.assertFalse(
+            {
+                plugin
+                for plugin, value in router["enabledPlugins"].items()
+                if value and plugin.startswith("writing-")
+            }
+        )
+
+    def test_optional_writing_skills_are_not_loaded_by_default(self):
+        for name in self.manifest["profiles"]:
+            overrides = self.settings(name)["skillOverrides"]
+            self.assertEqual(overrides.get("ux-writing"), "off", name)
+            self.assertEqual(overrides.get("better-readme"), "off", name)
+        router = json.loads(
+            (self.state / "runtime/router-settings.json").read_text()
+        )
+        self.assertEqual(router["skillOverrides"].get("ux-writing"), "off")
+        self.assertEqual(router["skillOverrides"].get("better-readme"), "off")
+        self.assertNotIn("tech-doc-style-chinese", skill_names(self.manifest))
+        self.assertNotIn("japanese-tech-writing", skill_names(self.manifest))
+
+    def test_writing_prompt_keeps_genres_exclusive(self):
+        librarian = (self.state / "profiles/librarian/prompt.md").read_text()
+        text = " ".join(librarian.split())
+        self.assertIn(
+            "Never load both `writing-tech` and `writing-personal` for the same text.",
+            text,
+        )
+        for name in self.manifest["profiles"]:
+            if name == "librarian":
+                continue
+            prompt = (self.state / f"profiles/{name}/prompt.md").read_text()
+            for skill in (
+                "writing-tech",
+                "writing-personal",
+                "writing-zh",
+                "writing-en",
+                "writing-ja",
+            ):
+                self.assertNotIn(skill, prompt, (name, skill))
+
+    def test_writing_plugin_install_and_retired_skills(self):
+        dockerfile = ROOT / "build/Dockerfile" if ROOT else None
+        if dockerfile and dockerfile.is_file():
+            text = dockerfile.read_text()
+            self.assertIn(
+                "claude plugin marketplace add IceCodeNew/the-elements-of-style",
+                text,
+            )
+            self.assertIn(
+                'claude plugin install "$p@elements-of-style" --scope user', text
+            )
+            self.assertNotIn("tech-doc-style-chinese", text)
+            self.assertNotIn("japanese-tech-writing", text)
+            self.assertIn("scarletkc/agents/skills/ux-writing", text)
+            self.assertIn("tommy0103/better-readme-skill/skills/better-readme", text)
+
     def test_safety_hooks_exist_in_children_and_not_router(self):
         for name in self.manifest["profiles"]:
             settings = self.settings(name)
@@ -456,11 +541,18 @@ class Profiles(unittest.TestCase):
         self.assertIn("health", self.manifest["profiles"]["dev"]["skills"])
         self.assertFalse((self.config / "commands/ui.md").exists())
 
-    def test_hookify_all_roles_and_gh_cli_dev_roles(self):
+    def test_hookify_and_gh_cli_are_role_scoped(self):
         self.assertNotIn("session-report@claude-plugins-official", self.plugins)
         for name in self.manifest["profiles"]:
             enabled = self.settings(name)["enabledPlugins"]
-            self.assertTrue(enabled.get("hookify@claude-plugins-official"), name)
+            if name in {"quick", "finder"}:
+                self.assertFalse(
+                    enabled.get("hookify@claude-plugins-official"), name
+                )
+            else:
+                self.assertTrue(
+                    enabled.get("hookify@claude-plugins-official"), name
+                )
         router = json.loads((self.state / "runtime/router-settings.json").read_text())
         self.assertTrue(router["enabledPlugins"].get("hookify@claude-plugins-official"))
         for name in ("dev", "rust", "go", "python", "frontend", "review"):
