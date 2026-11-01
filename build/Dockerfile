@@ -344,7 +344,7 @@ EOF
 
 FROM node AS codex
 # renovate: datasource=npm packageName=@openai/codex
-ARG CODEX_VERSION=0.165.0
+ARG CODEX_VERSION=0.166.0
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -370,7 +370,7 @@ EOF
 
 FROM node AS cf
 # renovate: datasource=npm packageName=cf
-ARG CF_VERSION=1.0.0-beta.25
+ARG CF_VERSION=1.0.0-beta.26
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
