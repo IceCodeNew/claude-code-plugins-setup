@@ -48,7 +48,7 @@ class UserDocumentation(unittest.TestCase):
         build = text.index("docker buildx build")
         login = text.index("ssh -p 8964")
         self.assertLess(build, login)
-        self.assertLess(login, text.index("## 使用范围"))
+        self.assertLess(login, text.index("## 功能范围"))
         self.assertIn("claude-plugins-setup.md#5-登录与认证", text)
 
     def test_user_alias_instructions_match_the_image(self):

@@ -256,6 +256,7 @@ claude plugin marketplace add obra/superpowers-marketplace
 claude plugin marketplace add typesafe-ai/skills
 claude plugin marketplace add entireio/skills
 claude plugin marketplace add trailofbits/skills
+claude plugin marketplace add IceCodeNew/the-elements-of-style
 
 for p in \
     claude-code-setup claude-md-management claude-security cloudflare \
@@ -282,15 +283,23 @@ do
     claude plugin install "$p@trailofbits" --scope user
 done
 
+# Writing skills are installed once and enabled per ccr profile. Keep all five
+# disabled for plain claude; ccr profiles enable only their role's combination.
+for p in writing-tech writing-personal writing-en writing-ja writing-zh; do
+    claude plugin install "$p@elements-of-style" --scope user
+    claude plugin disable "$p@elements-of-style" --scope user
+done
+
 # These are installed but originally disabled for plain claude; profiles decide.
 for p in redis-development modern-web-guidance; do
     claude plugin disable "$p@claude-plugins-official" --scope user
 done
 
 # Skills go to ~/.claude/skills first, then every one is linked into ~/.agents/skills for Codex.
-# Install the retained skills from their upstream repositories instead of the
-# ninehills Common bundle. The bundle vendors copies and has had broken symlink
-# layouts; direct upstreams keep the skill content and metadata current.
+# Install the retained skills from their upstream repositories instead of a vendored
+# bundle; direct upstreams keep the skill content and metadata current. The
+# writing-* plugins in section 3 replace the former Chinese and Japanese technical
+# writing skills; ux-writing and better-readme stay installed but unassigned.
 bash "${HOME}/.local/share/mise/installs/github-redhat-et-ripwire/latest/skills/install.sh"
 
 for s in \
@@ -311,10 +320,8 @@ for s in \
     cursor/plugins/thermos/skills/thermos \
     cursor/plugins/thermos/skills/thermo-nuclear-review \
     cursor/plugins/thermos/skills/thermo-nuclear-code-quality-review \
-    ninehills/skills/tech-doc-style-chinese \
     openclaw/openclaw/.agents/skills/test-audit \
-    tommy0103/better-readme-skill/skills/better-readme \
-    https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
+    tommy0103/better-readme-skill/skills/better-readme
 do
     openskills install "$s" -g -y
 done
@@ -532,6 +539,11 @@ do
         'any(.[]; .id == $id and .scope == "user" and .enabled and ((.errors // []) | length == 0))' \
         <<< "$plugins" >/dev/null
 done
+for p in writing-tech writing-personal writing-en writing-ja writing-zh; do
+    jq -e --arg id "$p@elements-of-style" \
+        'any(.[]; .id == $id and .scope == "user" and (.enabled | not) and ((.errors // []) | length == 0))' \
+        <<< "$plugins" >/dev/null
+done
 fff-mcp --version
 trash-put --version
 CLAUDE_HOOKS_DIR=/opt/claude-safety/hooks CLAUDE_DEV_BASHRC="${HOME}/.bashrc" python3 -B /tmp/test-safety-hooks.py
@@ -543,6 +555,12 @@ ccr doctor --strict
 jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+jq -e '.enabledPlugins["writing-tech@elements-of-style"] == true and .enabledPlugins["writing-zh@elements-of-style"] == true and .enabledPlugins["writing-en@elements-of-style"] == true and .enabledPlugins["writing-personal@elements-of-style"] == false and .enabledPlugins["writing-ja@elements-of-style"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
+jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["hookify@claude-plugins-official"] == false' "${HOME}/.local/state/cc-router/profiles/quick/settings.json"
+jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["hookify@claude-plugins-official"] == false' "${HOME}/.local/state/cc-router/profiles/finder/settings.json"
+jq -e '.enabledPlugins["writing-personal@elements-of-style"] == true and .enabledPlugins["writing-ja@elements-of-style"] == true' "${HOME}/.local/state/cc-router/profiles/librarian/settings.json"
+jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["writing-personal@elements-of-style"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.skillOverrides["ux-writing"] == "off" and .skillOverrides["better-readme"] == "off"' "${HOME}/.local/state/cc-router/profiles/librarian/settings.json"
 jq -e '.enabledPlugins["nowledge-mem@nowledge-community"] == true and .enabledPlugins["cloudflare@claude-plugins-official"] == true and .enabledPlugins["linear@claude-plugins-official"] == true and .enabledPlugins["telegram@claude-plugins-official"] == true and .enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
 jq -e '.enabledPlugins["rust-review@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
 jq -e '.enabledPlugins["rust-review@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
