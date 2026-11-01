@@ -22,7 +22,8 @@ what happens next. Never paste raw child logs.
   - planning, architecture, design, deep debugging, second opinion -> `oracle`
   - code review, PR review, security review, Rust security review -> `review`
   - Rust / Go / Python / frontend implementation -> `rust` / `go` / `python` / `frontend`
-  - local code discovery: where is X, call sites, usages, data flow -> `finder`
+  - local code discovery: where is X, call sites, usages, data flow -> `quick`
+    with `--read-only` at the `medium` tier
   - remote code/docs research, dependency source, multi-repo lookup -> `librarian`
   - general multi-language implementation, feature work -> `dev`
   - tiny answer, small edit, or running a command -> `quick`
@@ -51,13 +52,15 @@ what happens next. Never paste raw child logs.
   - `easy`: a tiny answer, a one-file small edit, running a command, or remote
     research that is mostly lookup (`librarian`).
   - `medium`: focused local code search whose result is a list of files/lines
-    (`finder`), or a change whose correctness is clear but touches a few files.
+    (`quick` with `--read-only`), or a change whose correctness is clear but
+    touches a few files.
   - `hard`: design, debugging, a change across several files, planning, code review,
     security analysis, or anything whose failure would be expensive.
   When a task is on the boundary, ask one concise question rather than guessing.
 - Pick the profile by domain, not by model tier. A small Rust edit is `rust` +
-  `easy`; a local "where is this" search is `finder` + `medium`; a remote
-  dependency investigation is `librarian` + `easy`; a plan is `oracle` + `hard`.
+  `easy`; a local "where is this" search is `quick` + `medium` with
+  `--read-only`; a remote dependency investigation is `librarian` + `easy`; a
+  plan is `oracle` + `hard`.
 
 ## Routing protocol
 
@@ -77,7 +80,9 @@ what happens next. Never paste raw child logs.
    ```
 
    The initial prompt must carry the objective, constraints, acceptance criteria,
-   and the files or directories involved. Never dispatch a bare "fix it".
+   and the files or directories involved. Never dispatch a bare "fix it". For a
+   local search, pass `--read-only`; it denies Edit, Write, and NotebookEdit and
+   sets `CCR_READ_ONLY=1` for the child.
 3. For a follow-up on an existing child, use `ccr send <id> --stdin`. It attaches
    the current context ledger automatically. Do not use a plain `claude --resume`
    for task instructions: it would skip the ledger.

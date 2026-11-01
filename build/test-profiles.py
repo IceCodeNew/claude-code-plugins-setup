@@ -53,7 +53,7 @@ def skill_names(manifest: dict) -> list[str]:
             if "*" not in name:
                 names.add(name)
     names.update(manifest.get("unassignedSkills", {}))
-    names.add("ripwire-review")
+    names.add("ripwire-find-bug")
     return sorted(names)
 
 
@@ -411,7 +411,7 @@ class Profiles(unittest.TestCase):
                 for plugin, value in self.settings(name)["enabledPlugins"].items()
                 if value
             }
-            expected = set() if name in {"quick", "finder"} else set(default)
+            expected = set() if name == "quick" else set(default)
             if name == "librarian":
                 expected.update(
                     {
@@ -571,7 +571,7 @@ class Profiles(unittest.TestCase):
         self.assertNotIn("session-report@claude-plugins-official", self.plugins)
         for name in self.manifest["profiles"]:
             enabled = self.settings(name)["enabledPlugins"]
-            if name in {"quick", "finder"}:
+            if name == "quick":
                 self.assertFalse(
                     enabled.get("hookify@claude-plugins-official"), name
                 )
@@ -717,15 +717,17 @@ class Profiles(unittest.TestCase):
         self.assertIn("Bash(git diff *--output*)", router["permissions"]["deny"])
         self.assertIn("Bash(git show *--output*)", router["permissions"]["deny"])
 
-    def test_finder_is_medium_and_librarian_is_easy(self):
-        self.assertEqual(self.manifest["profiles"]["finder"]["tier"], "medium")
+    def test_quick_covers_search_and_librarian_is_easy(self):
+        self.assertNotIn("finder", self.manifest["profiles"])
+        self.assertEqual(self.manifest["profiles"]["quick"]["tier"], "easy")
         self.assertEqual(self.manifest["profiles"]["librarian"]["tier"], "easy")
         self.assertEqual(self.manifest["profiles"]["oracle"]["tier"], "hard")
-        finder = self.settings("finder")
-        self.assertTrue(finder.get("permissions", {}).get("deny"))
-        self.assertTrue((self.state / "profiles/finder/mcp.json").is_file())
+        quick = self.settings("quick")
+        self.assertNotIn("Edit", quick["permissions"]["deny"])
+        self.assertNotIn("Write", quick["permissions"]["deny"])
+        self.assertTrue((self.state / "profiles/quick/mcp.json").is_file())
         self.assertEqual(
-            finder["skillOverrides"].get("ripwire-review"),
+            quick["skillOverrides"].get("ripwire-find-bug"),
             "on",
         )
 
@@ -785,7 +787,7 @@ class Profiles(unittest.TestCase):
             timeout=30,
         )
         text = json.loads(medium.stdout)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("finder", text)
+        self.assertIn("quick", text)
         self.assertIn("medium", text)
         easy = subprocess.run(
             [sys.executable, str(hook)],
@@ -905,19 +907,22 @@ class Routing(unittest.TestCase):
         medium = self.ccr(
             "spawn",
             "--profile",
-            "finder",
+            "quick",
             "--tier",
             "medium",
             "--name",
             "find",
             "--prompt",
             "where is the parser",
+            "--read-only",
             "--dry-run",
             "--json",
         )
         self.assertEqual(medium.returncode, 0, medium.stderr)
-        medium_argv = json.loads(medium.stdout)["argv"]
+        medium_data = json.loads(medium.stdout)
+        medium_argv = medium_data["argv"]
         self.assertEqual(medium_argv[medium_argv.index("--model") + 1], "sonnet")
+        self.assertTrue(medium_data["record"]["read_only"])
 
     def test_child_mode_inherits_router_and_accepts_overrides(self):
         def spawn(*args, env=None):
@@ -961,6 +966,31 @@ class Routing(unittest.TestCase):
         self.assertEqual(invalid.returncode, 2)
         self.assertIn("Unknown permission mode", invalid.stderr)
 
+    def test_read_only_spawn_denies_edits_and_sets_env(self):
+        spawned = self.ccr(
+            "spawn",
+            "--profile",
+            "quick",
+            "--tier",
+            "medium",
+            "--name",
+            "read-only",
+            "--prompt",
+            "where is the parser",
+            "--read-only",
+            "--json",
+        )
+        self.assertEqual(spawned.returncode, 0, spawned.stderr)
+        data = json.loads(spawned.stdout)
+        self.assertTrue(data["read_only"])
+        record_file = self.state / "sessions" / self._local_id() / "record.json"
+        record = json.loads(record_file.read_text())
+        self.assertTrue(record["read_only"])
+        settings = json.loads(Path(record["settings_file"]).read_text())
+        self.assertEqual(settings["env"]["CCR_READ_ONLY"], "1")
+        for rule in ("Edit", "Write", "NotebookEdit"):
+            self.assertIn(rule, settings["permissions"]["deny"])
+
     def test_spawn_send_checkpoint_and_summary(self):
         capture = self.root / "spawn-config.log"
         spawned = self.ccr(
@@ -1000,6 +1030,7 @@ class Routing(unittest.TestCase):
         self.assertEqual(
             settings["env"]["CCR_CONTEXT_FILE"], str(context)
         )
+        self.assertEqual(settings["env"]["CCR_READ_ONLY"], "0")
 
         checkpoint = self.ccr(
             "checkpoint",

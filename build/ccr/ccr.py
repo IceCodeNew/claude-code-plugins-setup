@@ -37,6 +37,7 @@ VERSION = "1.0.0"
 DEFAULT_MODELS = {"router": "haiku", "hard": "opus", "medium": "sonnet", "easy": "haiku"}
 DEFAULT_PERMISSION_MODE = "auto"
 YOLO_PERMISSION_MODE = "bypassPermissions"
+READ_ONLY_DENY = ("Edit", "Write", "NotebookEdit")
 PERMISSION_MODES = (
     "auto",
     "default",
@@ -874,9 +875,9 @@ def profile_index_markdown(manifest: dict) -> str:
         + "`CCR_MEDIUM_MODEL`, `CCR_EASY_MODEL`.",
         "",
         (
-            "Default tiers: `quick`/`librarian` easy, `finder` medium, implementation "
-            "and review profiles hard. A small Rust edit is `rust` + `--tier easy`; "
-            "a local code search is `finder` + `--tier medium`."
+            "Default tiers: `quick`/`librarian` easy, implementation and review "
+            "profiles hard. A small Rust edit is `rust` + `--tier easy`; a local "
+            "code search is `quick` + `--tier medium` + `--read-only`."
         ),
         "",
     ]
@@ -1304,7 +1305,10 @@ def initial_ledger(record: dict, prompt: str) -> str:
 
 
 def write_session_settings(
-    profile_settings_file: Path, context: Path, record: dict
+    profile_settings_file: Path,
+    context: Path,
+    record: dict,
+    read_only: bool = False,
 ) -> Path:
     data = load_json(profile_settings_file, {})
     if not isinstance(data, dict):
@@ -1316,8 +1320,19 @@ def write_session_settings(
             "CCR_PROFILE": str(record["profile"]),
             "CCR_SESSION_ID": str(record.get("local_id") or record["id"]),
             "CCR_CONTEXT_FILE": str(record["context_file"]),
+            "CCR_READ_ONLY": "1" if read_only else "0",
         }
     )
+    if read_only:
+        permissions = data.setdefault("permissions", {})
+        if not isinstance(permissions, dict):
+            raise CcrError(f"Invalid permissions in {profile_settings_file}")
+        deny = permissions.setdefault("deny", [])
+        if not isinstance(deny, list):
+            raise CcrError(f"Invalid permissions.deny in {profile_settings_file}")
+        for rule in READ_ONLY_DENY:
+            if rule not in deny:
+                deny.append(rule)
     path = context / "settings.json"
     write_json(path, data, mode=0o600)
     return path
@@ -1395,6 +1410,7 @@ def session_environment(
             "CCR_SESSION_ID": str(record.get("local_id") or record["id"]),
             "CCR_CONTEXT_FILE": str(context_path(state, record)),
             "CCR_PROFILE": str(record["profile"]),
+            "CCR_READ_ONLY": "1" if record.get("read_only") else "0",
         }
     )
     if record.get("permission_mode"):
@@ -1676,6 +1692,7 @@ def cmd_spawn(args) -> int:
         "claude_config_dir": str(claude_config),
         "task": prompt.strip().splitlines()[0][:200],
         "permission_mode": permission_mode,
+        "read_only": bool(args.read_only),
     }
 
     session_settings = Path(record["settings_file"])
@@ -1708,7 +1725,9 @@ def cmd_spawn(args) -> int:
         print_result({"argv": argv, "record": record}, args.json)
         return 0
     context.mkdir(parents=True, exist_ok=True, mode=0o700)
-    session_settings = write_session_settings(settings_file, context, record)
+    session_settings = write_session_settings(
+        settings_file, context, record, read_only=args.read_only
+    )
     if not args.no_preflight:
         preflight(
             session_settings, profile.get("plugins", []), config, claude_config
@@ -1757,6 +1776,7 @@ def cmd_spawn(args) -> int:
             "profile": name,
             "tier": tier,
             "model": model,
+            "read_only": record["read_only"],
             "cwd": record["cwd"],
             "context": record["context_file"],
             "claude_config_dir": record.get("claude_config_dir"),
@@ -1796,7 +1816,10 @@ def cmd_send(args) -> int:
         if not profile_settings.is_file():
             raise CcrError(f"Session {record['id']} settings are missing; re-spawn it")
         settings_file = write_session_settings(
-            profile_settings, context_path(state, record).parent, record
+            profile_settings,
+            context_path(state, record).parent,
+            record,
+            read_only=bool(record.get("read_only")),
         )
         record["settings_file"] = str(settings_file)
     if not prompt_file.is_file() or not mcp_file.is_file():
@@ -2422,6 +2445,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cwd")
     p.add_argument("--model")
     p.add_argument("--permission-mode")
+    p.add_argument(
+        "--read-only",
+        action="store_true",
+        help="deny Edit, Write, and NotebookEdit in the child",
+    )
     p.add_argument("--prompt")
     p.add_argument("--prompt-file")
     p.add_argument("--worktree", nargs="?", const="")

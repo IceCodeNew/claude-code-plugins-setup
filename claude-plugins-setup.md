@@ -308,7 +308,7 @@ claude plugin list
 
 - `dev`、`rust`、`go`、`python`、`frontend`、`review`、`oracle`、`librarian`：`writing-tech` + `writing-en` + `writing-zh`。中文和英文是常态组合。
 - `librarian`：额外启用 `writing-personal` 和 `writing-ja`。只有它的 prompt 补充一条互斥约束：同一篇文本不要同时加载 `writing-tech` 和 `writing-personal`。
-- `quick` 和 `finder` 不启用写作插件。`quick` 不装 `hookify`，只保留 fff 搜索；`finder` 只保留搜索和 ripwire 技能。router 不启用写作插件。
+- `quick` 不启用写作插件和 `hookify`，保留 fff 搜索、ripwire 技能、单文件编辑和命令执行能力；本地只读搜索用 `--read-only` 强制。router 不启用写作插件。
 
 `ux-writing` 和 `better-readme` 仍然安装，但不分派给任何配置，默认不加载。需要时在 [profiles.json](build/profiles/profiles.json) 的 `skills` 中分配，再运行 `ccr refresh`。
 
@@ -443,7 +443,7 @@ gh extension install github/gh-stack
 )
 ```
 
-MCP 使用绝对二进制路径，不依赖 PATH。不要给服务传构建目录或固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根，工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|frontend|review|librarian|oracle|finder` 在目标 worktree 启动子会话，用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。所有角色和 router 都加载 fff；它比反复 grep 更快，成本低于模型默认的多轮搜索。
+MCP 使用绝对二进制路径，不依赖 PATH。不要给服务传构建目录或固定仓库路径：fff 默认搜索启动目录，Git 子目录会解析到当前 worktree 根，工具参数不能切换到另一个仓库。通过 `ccr spawn --profile dev|rust|go|python|frontend|review|librarian|oracle|quick` 在目标 worktree 启动子会话，本地只读搜索用 `ccr spawn --profile quick --tier medium --read-only`。用 `/mcp` 检查 `fff` 是否 connected，用 `/skills` 检查 `searching-with-fff`，也可以显式调用 `/searching-with-fff`。所有角色和 router 都加载 fff；它比反复 grep 更快，成本低于模型默认的多轮搜索。
 
 技能 description 用于模型判断是否加载技能。正文选择 fff server 的 `find_files`、`grep` 或 `multi_grep`，并要求解析宿主暴露的工具名前缀（Claude Code 中为 `mcp__fff__*`），细节放在按需读取的 `routing.md`。这些是引导，不是强制工具拦截，也不保证每次自动触发。连接失败时技能要求报告问题，不静默换成 grep/rg 或自制扫描器。本节不新增 hooks、不修改 `CLAUDE.md`、不设置全局 MCP 加载环境变量。
 
@@ -619,6 +619,8 @@ ccr
 ```
 
 `ccr` 默认以 Claude Code 的 `auto` 权限模式启动，派生的子会话默认继承同一模式；`ccr spawn --permission-mode <mode>` 可对单次派发覆盖。需要跳过全部权限检查时运行 `ccr yolo`，它以 `bypassPermissions` 启动路由，子会话也继承。`auto` 是否可用取决于账号、提供商和模型；不可用时 Claude Code 回退到 Manual。细节见 [Claude Code 权限模式](https://code.claude.com/docs/en/permission-modes)。
+
+本地只读搜索用 `ccr spawn --profile quick --tier medium --read-only`；`--read-only` 在子会话 settings 中加入 Edit、Write、NotebookEdit 的 deny，并设置 `CCR_READ_ONLY=1`。
 
 进度汇报和提问规则（每 10 分钟汇报、卡点重试、8 分钟等待、中文提问格式）统一维护在 [router prompt](build/profiles/prompts/router.md) 的 “Progress, blockers, and questions” 一节；README 只引用这一处。
 

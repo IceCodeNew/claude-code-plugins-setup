@@ -36,13 +36,14 @@
   },
   "profiles": {
     "quick": {
-      "description": "Easy tasks: a quick question, a one-file small edit, a lookup, or running a command.",
+      "description": "Quick tasks and read-only local search: a quick question, a one-file small edit, running a command, or finding files and line ranges.",
       "prompt": "prompts/quick.md",
       "tier": "easy",
       "effort": "low",
       "plugins": [],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "ripwire*"
       ],
       "mcp": [
         "fff"
@@ -69,7 +70,30 @@
         "是什么",
         "怎么用",
         "跑一下",
-        "执行命令"
+        "执行命令",
+        "find",
+        "where are",
+        "locate",
+        "search",
+        "grep",
+        "call sites",
+        "callers",
+        "usages",
+        "references",
+        "definition",
+        "defined",
+        "which module",
+        "all occurrences",
+        "find all",
+        "查找",
+        "在哪儿",
+        "哪里",
+        "调用点",
+        "引用",
+        "定义",
+        "搜索",
+        "定位",
+        "所有出现"
       ]
     },
     "dev": {
@@ -493,53 +517,6 @@
         "oxfmt",
         "eslint",
         "prettier"
-      ]
-    },
-    "finder": {
-      "description": "Finder: fast read-only local codebase search; return files and line ranges, not essays.",
-      "prompt": "prompts/finder.md",
-      "tier": "medium",
-      "effort": "low",
-      "plugins": [],
-      "skills": [
-        "searching-with-fff",
-        "ripwire*"
-      ],
-      "mcp": [
-        "fff"
-      ],
-      "permissions": {
-        "deny": [
-          "Edit",
-          "Write",
-          "NotebookEdit"
-        ]
-      },
-      "keywords": [
-        "find",
-        "where is",
-        "where are",
-        "locate",
-        "search",
-        "grep",
-        "call sites",
-        "callers",
-        "usages",
-        "references",
-        "definition",
-        "defined",
-        "which module",
-        "all occurrences",
-        "find all",
-        "查找",
-        "在哪儿",
-        "哪里",
-        "调用点",
-        "引用",
-        "定义",
-        "搜索",
-        "定位",
-        "所有出现"
       ]
     }
   },
