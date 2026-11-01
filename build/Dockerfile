@@ -552,12 +552,13 @@ python3 -B /tmp/test-entire.py
 python3 -B /tmp/test-mcp-bootstrap.py
 python3 -B /tmp/test-profiles.py
 ccr doctor --strict
+jq -e '.permissions.defaultMode == "auto"' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.permissions.defaultMode == "auto"' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 jq -e '.enabledPlugins["writing-tech@elements-of-style"] == true and .enabledPlugins["writing-zh@elements-of-style"] == true and .enabledPlugins["writing-en@elements-of-style"] == true and .enabledPlugins["writing-personal@elements-of-style"] == false and .enabledPlugins["writing-ja@elements-of-style"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
 jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["hookify@claude-plugins-official"] == false' "${HOME}/.local/state/cc-router/profiles/quick/settings.json"
-jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["hookify@claude-plugins-official"] == false' "${HOME}/.local/state/cc-router/profiles/finder/settings.json"
 jq -e '.enabledPlugins["writing-personal@elements-of-style"] == true and .enabledPlugins["writing-ja@elements-of-style"] == true' "${HOME}/.local/state/cc-router/profiles/librarian/settings.json"
 jq -e '.enabledPlugins["writing-tech@elements-of-style"] == false and .enabledPlugins["writing-personal@elements-of-style"] == false' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
 jq -e '.skillOverrides["ux-writing"] == "off" and .skillOverrides["better-readme"] == "off"' "${HOME}/.local/state/cc-router/profiles/librarian/settings.json"

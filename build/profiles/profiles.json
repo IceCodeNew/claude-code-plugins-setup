@@ -36,14 +36,14 @@
   },
   "profiles": {
     "quick": {
-      "description": "Easy tasks: a quick question, a one-file small edit, a lookup, or running a command.",
+      "description": "Quick tasks and read-only local search: a quick question, a one-file small edit, running a command, or finding files and line ranges.",
       "prompt": "prompts/quick.md",
       "tier": "easy",
-      "permissionMode": "acceptEdits",
       "effort": "low",
       "plugins": [],
       "skills": [
-        "searching-with-fff"
+        "searching-with-fff",
+        "ripwire*"
       ],
       "mcp": [
         "fff"
@@ -70,14 +70,36 @@
         "是什么",
         "怎么用",
         "跑一下",
-        "执行命令"
+        "执行命令",
+        "find",
+        "where are",
+        "locate",
+        "search",
+        "grep",
+        "call sites",
+        "callers",
+        "usages",
+        "references",
+        "definition",
+        "defined",
+        "which module",
+        "all occurrences",
+        "find all",
+        "查找",
+        "在哪儿",
+        "哪里",
+        "调用点",
+        "引用",
+        "定义",
+        "搜索",
+        "定位",
+        "所有出现"
       ]
     },
     "dev": {
       "description": "General software work: features, refactors, debugging, multi-file changes, tests, and planning.",
       "prompt": "prompts/dev.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "context7@claude-plugins-official",
@@ -143,7 +165,6 @@
       "description": "Rust implementation: cargo, clippy, unsafe, concurrency, rust-analyzer. Security review goes to review.",
       "prompt": "prompts/rust.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "rust-analyzer-lsp@claude-plugins-official",
@@ -183,7 +204,6 @@
       "description": "Review, security audit, and verification: code review, PR review, Rust security review, vulnerability analysis, false-positive checks.",
       "prompt": "prompts/review.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "coderabbit@claude-plugins-official",
@@ -256,7 +276,6 @@
       "description": "Librarian: read-only remote-code and docs research across GitHub, dependencies, and the web; writing/diagrams when asked.",
       "prompt": "prompts/librarian.md",
       "tier": "easy",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "firecrawl@claude-plugins-official",
@@ -317,7 +336,6 @@
       "description": "Go implementation: packages, concurrency, errors, gopls, gofmt/vet/test.",
       "prompt": "prompts/go.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "gopls-lsp@claude-plugins-official",
@@ -356,7 +374,6 @@
       "description": "Python implementation: uv, ruff, ty/pyright, pytest, Pydantic; no pip shims.",
       "prompt": "prompts/python.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "pyright-lsp@claude-plugins-official",
@@ -397,7 +414,6 @@
       "description": "Oracle: read-only senior analysis, architecture, planning, debugging hypotheses, and second opinions.",
       "prompt": "prompts/oracle.md",
       "tier": "hard",
-      "permissionMode": "plan",
       "effort": "high",
       "plugins": [
         "remember@claude-plugins-official",
@@ -454,7 +470,6 @@
       "description": "Frontend implementation: modern web platform, accessibility, performance, TypeScript, framework conventions.",
       "prompt": "prompts/frontend.md",
       "tier": "hard",
-      "permissionMode": "acceptEdits",
       "effort": "high",
       "plugins": [
         "modern-web-guidance@claude-plugins-official",
@@ -502,54 +517,6 @@
         "oxfmt",
         "eslint",
         "prettier"
-      ]
-    },
-    "finder": {
-      "description": "Finder: fast read-only local codebase search; return files and line ranges, not essays.",
-      "prompt": "prompts/finder.md",
-      "tier": "medium",
-      "permissionMode": "plan",
-      "effort": "low",
-      "plugins": [],
-      "skills": [
-        "searching-with-fff",
-        "ripwire*"
-      ],
-      "mcp": [
-        "fff"
-      ],
-      "permissions": {
-        "deny": [
-          "Edit",
-          "Write",
-          "NotebookEdit"
-        ]
-      },
-      "keywords": [
-        "find",
-        "where is",
-        "where are",
-        "locate",
-        "search",
-        "grep",
-        "call sites",
-        "callers",
-        "usages",
-        "references",
-        "definition",
-        "defined",
-        "which module",
-        "all occurrences",
-        "find all",
-        "查找",
-        "在哪儿",
-        "哪里",
-        "调用点",
-        "引用",
-        "定义",
-        "搜索",
-        "定位",
-        "所有出现"
       ]
     }
   },

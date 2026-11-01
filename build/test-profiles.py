@@ -53,7 +53,7 @@ def skill_names(manifest: dict) -> list[str]:
             if "*" not in name:
                 names.add(name)
     names.update(manifest.get("unassignedSkills", {}))
-    names.add("ripwire-review")
+    names.add("ripwire-find-bug")
     return sorted(names)
 
 
@@ -159,6 +159,7 @@ class Profiles(unittest.TestCase):
             "CCR_PLUGINS_JSON": str(cls.inventory),
             "CLAUDE_BIN": str(cls.fake),
         }
+        cls.env.pop("CCR_PERMISSION_MODE", None)
         cls.refresh = subprocess.run(
             CCR + ["refresh", "--strict"],
             env=cls.env,
@@ -347,6 +348,17 @@ class Profiles(unittest.TestCase):
         router_mcp = json.loads((self.state / "runtime/router-mcp.json").read_text())
         self.assertIn("fff", router_mcp["mcpServers"])
 
+    def test_permission_modes_default_to_auto(self):
+        router = json.loads(
+            (self.state / "runtime/router-settings.json").read_text()
+        )
+        self.assertEqual(router["permissions"]["defaultMode"], "auto")
+        for name, profile in self.manifest["profiles"].items():
+            self.assertNotIn("permissionMode", profile, name)
+            self.assertEqual(
+                self.settings(name)["permissions"]["defaultMode"], "auto", name
+            )
+
     def test_each_profile_enables_only_its_plugins(self):
         for name, profile in self.manifest["profiles"].items():
             settings = self.settings(name)
@@ -399,7 +411,7 @@ class Profiles(unittest.TestCase):
                 for plugin, value in self.settings(name)["enabledPlugins"].items()
                 if value
             }
-            expected = set() if name in {"quick", "finder"} else set(default)
+            expected = set() if name == "quick" else set(default)
             if name == "librarian":
                 expected.update(
                     {
@@ -496,6 +508,20 @@ class Profiles(unittest.TestCase):
         self.assertIn('ccr context "$CCR_SESSION_ID" --append -', contract)
         self.assertNotIn("ccr spawn --bg", router + contract)
 
+    def test_router_prompt_reports_progress_and_handles_blockers(self):
+        router = " ".join(
+            (self.state / "runtime/router-prompt.md").read_text().split()
+        )
+        self.assertIn("every 10 minutes", router)
+        self.assertIn("not confident about", router)
+        self.assertIn("Park a blocker", router)
+        self.assertIn("8 minutes", router)
+        self.assertIn("write in Chinese", router)
+        self.assertIn("benefits and risks", router)
+        self.assertIn("empirical evidence", router)
+        self.assertIn("guess, an estimate", router)
+        self.assertIn("AskUserQuestion", router)
+
     def test_commands_are_installed_model_invocable_and_marked(self):
         commands = self.config / "commands"
         self.assertTrue(commands.is_dir())
@@ -545,7 +571,7 @@ class Profiles(unittest.TestCase):
         self.assertNotIn("session-report@claude-plugins-official", self.plugins)
         for name in self.manifest["profiles"]:
             enabled = self.settings(name)["enabledPlugins"]
-            if name in {"quick", "finder"}:
+            if name == "quick":
                 self.assertFalse(
                     enabled.get("hookify@claude-plugins-official"), name
                 )
@@ -691,15 +717,17 @@ class Profiles(unittest.TestCase):
         self.assertIn("Bash(git diff *--output*)", router["permissions"]["deny"])
         self.assertIn("Bash(git show *--output*)", router["permissions"]["deny"])
 
-    def test_finder_is_medium_and_librarian_is_easy(self):
-        self.assertEqual(self.manifest["profiles"]["finder"]["tier"], "medium")
+    def test_quick_covers_search_and_librarian_is_easy(self):
+        self.assertNotIn("finder", self.manifest["profiles"])
+        self.assertEqual(self.manifest["profiles"]["quick"]["tier"], "easy")
         self.assertEqual(self.manifest["profiles"]["librarian"]["tier"], "easy")
         self.assertEqual(self.manifest["profiles"]["oracle"]["tier"], "hard")
-        finder = self.settings("finder")
-        self.assertTrue(finder.get("permissions", {}).get("deny"))
-        self.assertTrue((self.state / "profiles/finder/mcp.json").is_file())
+        quick = self.settings("quick")
+        self.assertNotIn("Edit", quick["permissions"]["deny"])
+        self.assertNotIn("Write", quick["permissions"]["deny"])
+        self.assertTrue((self.state / "profiles/quick/mcp.json").is_file())
         self.assertEqual(
-            finder["skillOverrides"].get("ripwire-review"),
+            quick["skillOverrides"].get("ripwire-find-bug"),
             "on",
         )
 
@@ -759,7 +787,7 @@ class Profiles(unittest.TestCase):
             timeout=30,
         )
         text = json.loads(medium.stdout)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("finder", text)
+        self.assertIn("quick", text)
         self.assertIn("medium", text)
         easy = subprocess.run(
             [sys.executable, str(hook)],
@@ -819,6 +847,7 @@ class Routing(unittest.TestCase):
             "CCR_PLUGINS_JSON": str(self.inventory),
             "CLAUDE_BIN": str(self.fake),
         }
+        self.env.pop("CCR_PERMISSION_MODE", None)
         refresh = subprocess.run(
             CCR + ["refresh", "--strict"],
             env=self.env,
@@ -869,24 +898,98 @@ class Routing(unittest.TestCase):
         self.assertEqual(argv[argv.index("--model") + 1], "haiku")
         self.assertEqual(argv[argv.index("--setting-sources") + 1], "user")
         self.assertIn("--permission-mode", argv)
+        self.assertEqual(
+            argv[argv.index("--permission-mode") + 1], "auto"
+        )
         self.assertNotIn("--agent", argv)
         self.assertEqual(data["record"]["profile"], "rust")
+        self.assertEqual(data["record"]["permission_mode"], "auto")
         medium = self.ccr(
             "spawn",
             "--profile",
-            "finder",
+            "quick",
             "--tier",
             "medium",
             "--name",
             "find",
             "--prompt",
             "where is the parser",
+            "--read-only",
             "--dry-run",
             "--json",
         )
         self.assertEqual(medium.returncode, 0, medium.stderr)
-        medium_argv = json.loads(medium.stdout)["argv"]
+        medium_data = json.loads(medium.stdout)
+        medium_argv = medium_data["argv"]
         self.assertEqual(medium_argv[medium_argv.index("--model") + 1], "sonnet")
+        self.assertTrue(medium_data["record"]["read_only"])
+
+    def test_child_mode_inherits_router_and_accepts_overrides(self):
+        def spawn(*args, env=None):
+            return self.ccr(
+                "spawn",
+                "--profile",
+                "rust",
+                "--tier",
+                "easy",
+                "--name",
+                "mode",
+                "--prompt",
+                "fix",
+                "--dry-run",
+                "--json",
+                *args,
+                env=env or {},
+            )
+
+        inherited = spawn(env={"CCR_PERMISSION_MODE": "bypassPermissions"})
+        self.assertEqual(inherited.returncode, 0, inherited.stderr)
+        data = json.loads(inherited.stdout)
+        argv = data["argv"]
+        self.assertEqual(data["record"]["permission_mode"], "bypassPermissions")
+        self.assertEqual(
+            argv[argv.index("--permission-mode") + 1], "bypassPermissions"
+        )
+
+        overridden = spawn(
+            "--permission-mode",
+            "plan",
+            env={"CCR_PERMISSION_MODE": "bypassPermissions"},
+        )
+        self.assertEqual(overridden.returncode, 0, overridden.stderr)
+        data = json.loads(overridden.stdout)
+        argv = data["argv"]
+        self.assertEqual(data["record"]["permission_mode"], "plan")
+        self.assertEqual(argv[argv.index("--permission-mode") + 1], "plan")
+
+        invalid = spawn(env={"CCR_PERMISSION_MODE": "nope"})
+        self.assertEqual(invalid.returncode, 2)
+        self.assertIn("Unknown permission mode", invalid.stderr)
+
+    def test_read_only_spawn_denies_edits_and_sets_env(self):
+        spawned = self.ccr(
+            "spawn",
+            "--profile",
+            "quick",
+            "--tier",
+            "medium",
+            "--name",
+            "read-only",
+            "--prompt",
+            "where is the parser",
+            "--read-only",
+            "--json",
+        )
+        self.assertEqual(spawned.returncode, 0, spawned.stderr)
+        data = json.loads(spawned.stdout)
+        self.assertTrue(data["read_only"])
+        record_file = self.state / "sessions" / self._local_id() / "record.json"
+        record = json.loads(record_file.read_text())
+        self.assertTrue(record["read_only"])
+        settings = json.loads(Path(record["settings_file"]).read_text())
+        self.assertEqual(settings["env"]["CCR_READ_ONLY"], "1")
+        for rule in ("Edit", "Write", "NotebookEdit"):
+            self.assertIn(rule, settings["permissions"]["deny"])
 
     def test_spawn_send_checkpoint_and_summary(self):
         capture = self.root / "spawn-config.log"
@@ -927,6 +1030,7 @@ class Routing(unittest.TestCase):
         self.assertEqual(
             settings["env"]["CCR_CONTEXT_FILE"], str(context)
         )
+        self.assertEqual(settings["env"]["CCR_READ_ONLY"], "0")
 
         checkpoint = self.ccr(
             "checkpoint",
@@ -939,6 +1043,15 @@ class Routing(unittest.TestCase):
         sent = self.ccr("send", "deadbeef", "add a regression test", "--json")
         self.assertEqual(sent.returncode, 0, sent.stderr)
         self.assertIn("router instruction", context.read_text())
+
+        sent_dry = self.ccr(
+            "send", "deadbeef", "add another test", "--dry-run", "--json"
+        )
+        self.assertEqual(sent_dry.returncode, 0, sent_dry.stderr)
+        sent_argv = json.loads(sent_dry.stdout)["argv"]
+        self.assertEqual(
+            sent_argv[sent_argv.index("--permission-mode") + 1], "auto"
+        )
 
         status = self.ccr("status", "deadbeef", "--json")
         self.assertEqual(status.returncode, 0, status.stderr)
@@ -1153,6 +1266,45 @@ class Routing(unittest.TestCase):
             definition["prompt"],
             (self.state / "runtime/router-prompt.md").read_text(),
         )
+
+    def test_router_starts_in_auto_and_yolo_subcommand_starts_bypass(self):
+        auto = self.ccr("router", "--resume")
+        self.assertEqual(auto.returncode, 0, auto.stderr)
+        self.assertIn("--permission-mode auto", auto.stdout)
+
+        yolo = self.ccr("yolo", "--resume")
+        self.assertEqual(yolo.returncode, 0, yolo.stderr)
+        self.assertIn("--permission-mode bypassPermissions", yolo.stdout)
+        self.assertNotIn("--yolo", yolo.stdout)
+
+        old_flag = self.ccr("--yolo")
+        self.assertEqual(old_flag.returncode, 2)
+        self.assertIn("ccr yolo", old_flag.stderr)
+
+        explicit = self.ccr("--permission-mode", "plan", "--resume")
+        self.assertEqual(explicit.returncode, 0, explicit.stderr)
+        self.assertIn("--permission-mode plan", explicit.stdout)
+        self.assertNotIn("--permission-mode auto", explicit.stdout)
+
+        dangerous = self.ccr("router", "--dangerously-skip-permissions", "--resume")
+        self.assertEqual(dangerous.returncode, 0, dangerous.stderr)
+        self.assertIn("--dangerously-skip-permissions", dangerous.stdout)
+        self.assertNotIn("--permission-mode bypassPermissions", dangerous.stdout)
+
+        prompt_after_separator = self.ccr("yolo", "--", "--permission-mode")
+        self.assertEqual(
+            prompt_after_separator.returncode, 0, prompt_after_separator.stderr
+        )
+        self.assertIn(
+            "--permission-mode bypassPermissions", prompt_after_separator.stdout
+        )
+        self.assertTrue(
+            prompt_after_separator.stdout.rstrip().endswith("-- --permission-mode")
+        )
+
+        conflict = self.ccr("yolo", "--permission-mode", "plan", "--resume")
+        self.assertEqual(conflict.returncode, 2)
+        self.assertIn("does not accept --permission-mode", conflict.stderr)
 
     def test_orphan_plugin_fails_strict_refresh(self):
         inventory = self.root / "orphan.json"

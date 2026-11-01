@@ -23,7 +23,8 @@ ssh -p 8964 nonroot@localhost
 `ccr` 是唯一日常入口，负责意图判断、后台子会话分发和上下文维护。
 
 ```bash
-ccr                 # 启动路由（唯一日常入口）
+ccr                 # 启动路由，默认 auto 权限模式
+ccr yolo            # 启动路由，权限模式改为 bypassPermissions
 ccr profiles        # 查看配置和插件归属
 ccr doctor --strict # 检查配置隔离和生成物
 ccr spawn --profile rust --tier easy --name small --prompt-file - <<'PROMPT'
@@ -32,13 +33,19 @@ PROMPT
 ccr summary         # 汇总各子会话进度
 ```
 
-路由只加载记忆、运维和会话编排插件。`quick` 和 `finder` 只保留搜索能力，其余角色按需启用实现、审查或写作插件。模型档位见[路由配置](claude-plugins-setup.md#48-路由配置与-ccr)，插件与写作组合见[插件归属](claude-plugins-setup.md#31-插件归属)。
+路由和子会话默认以 Claude Code 的 `auto` 权限模式运行；`ccr yolo` 把本次路由和它派生的子会话切到 `bypassPermissions`。`ccr spawn --permission-mode <mode>` 可对单次派发覆盖。`auto` 是否可用取决于账号、提供商和模型；不可用时 Claude Code 回退到 Manual。细节见[路由配置](claude-plugins-setup.md#48-路由配置与-ccr)。
+
+本地只读搜索用 `ccr spawn --profile quick --tier medium --read-only`；子会话会禁用 Edit、Write 和 NotebookEdit。
+
+路由每 10 分钟汇总一次进度。不确定的自主决定、卡点的重试顺序、8 分钟等待规则和提问格式统一写在[路由 prompt](build/profiles/prompts/router.md) 的 “Progress, blockers, and questions” 一节。
+
+路由只加载记忆、运维和会话编排插件。`quick` 保留 fff 搜索、ripwire、单文件编辑和命令执行能力，其余角色按需启用实现、审查或写作插件。模型档位见[路由配置](claude-plugins-setup.md#48-路由配置与-ccr)，插件与写作组合见[插件归属](claude-plugins-setup.md#31-插件归属)。
 
 ## 功能范围
 
 | 功能 | 说明 |
 |---|---|
-| 路由与角色 | `ccr` 分发 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle`、`finder`；[配置清单](build/profiles/profiles.json) |
+| 路由与角色 | `ccr` 分发 `quick`、`dev`、`rust`、`go`、`python`、`frontend`、`review`、`librarian`、`oracle`；[配置清单](build/profiles/profiles.json) |
 | 角色命令 | `/plan`、`/research`、`/feature`、`/review`、`/security-check`；[命令来源](build/profiles/commands) |
 | 审查页面 | `review` 启用 [code-review-page](https://github.com/IceCodeNew/code-review-page-kit)，生成块级 HTML 评审页、diff 注释和复杂度热点 |
 | 写作技能 | `writing-*` 按角色启用，技术角色与 `librarian` 使用不同的 genre 和语言组合；[组合](claude-plugins-setup.md#32-写作技能组合) |

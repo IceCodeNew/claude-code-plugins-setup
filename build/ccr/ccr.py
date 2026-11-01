@@ -35,6 +35,18 @@ from pathlib import Path
 
 VERSION = "1.0.0"
 DEFAULT_MODELS = {"router": "haiku", "hard": "opus", "medium": "sonnet", "easy": "haiku"}
+DEFAULT_PERMISSION_MODE = "auto"
+YOLO_PERMISSION_MODE = "bypassPermissions"
+READ_ONLY_DENY = ("Edit", "Write", "NotebookEdit")
+PERMISSION_MODES = (
+    "auto",
+    "default",
+    "manual",
+    "acceptEdits",
+    "plan",
+    "bypassPermissions",
+    "dontAsk",
+)
 CHILD_CONTRACT = "_child-contract.md"
 ROUTER_MARKER = "<!-- CCR_PROFILE_INDEX -->"
 ROUTER_DESCRIPTION = (
@@ -64,6 +76,7 @@ AUTH_KEYS = (
 SUBCOMMANDS = {
     "refresh",
     "router",
+    "yolo",
     "spawn",
     "send",
     "list",
@@ -600,9 +613,7 @@ def base_permissions(profile: dict) -> dict:
             if value not in values:
                 values.append(value)
         permissions[key] = values
-    mode = profile.get("permissionMode")
-    if mode:
-        permissions["defaultMode"] = mode
+    permissions["defaultMode"] = DEFAULT_PERMISSION_MODE
     return permissions
 
 
@@ -627,7 +638,7 @@ def router_permissions() -> dict:
             "Bash(git log *--output*)",
             "Bash(git show *--output*)",
         ],
-        "defaultMode": "default",
+        "defaultMode": DEFAULT_PERMISSION_MODE,
     }
 
 
@@ -864,9 +875,9 @@ def profile_index_markdown(manifest: dict) -> str:
         + "`CCR_MEDIUM_MODEL`, `CCR_EASY_MODEL`.",
         "",
         (
-            "Default tiers: `quick`/`librarian` easy, `finder` medium, implementation "
-            "and review profiles hard. A small Rust edit is `rust` + `--tier easy`; "
-            "a local code search is `finder` + `--tier medium`."
+            "Default tiers: `quick`/`librarian` easy, implementation and review "
+            "profiles hard. A small Rust edit is `rust` + `--tier easy`; a local "
+            "code search is `quick` + `--tier medium` + `--read-only`."
         ),
         "",
     ]
@@ -1294,7 +1305,10 @@ def initial_ledger(record: dict, prompt: str) -> str:
 
 
 def write_session_settings(
-    profile_settings_file: Path, context: Path, record: dict
+    profile_settings_file: Path,
+    context: Path,
+    record: dict,
+    read_only: bool = False,
 ) -> Path:
     data = load_json(profile_settings_file, {})
     if not isinstance(data, dict):
@@ -1306,8 +1320,19 @@ def write_session_settings(
             "CCR_PROFILE": str(record["profile"]),
             "CCR_SESSION_ID": str(record.get("local_id") or record["id"]),
             "CCR_CONTEXT_FILE": str(record["context_file"]),
+            "CCR_READ_ONLY": "1" if read_only else "0",
         }
     )
+    if read_only:
+        permissions = data.setdefault("permissions", {})
+        if not isinstance(permissions, dict):
+            raise CcrError(f"Invalid permissions in {profile_settings_file}")
+        deny = permissions.setdefault("deny", [])
+        if not isinstance(deny, list):
+            raise CcrError(f"Invalid permissions.deny in {profile_settings_file}")
+        for rule in READ_ONLY_DENY:
+            if rule not in deny:
+                deny.append(rule)
     path = context / "settings.json"
     write_json(path, data, mode=0o600)
     return path
@@ -1385,8 +1410,12 @@ def session_environment(
             "CCR_SESSION_ID": str(record.get("local_id") or record["id"]),
             "CCR_CONTEXT_FILE": str(context_path(state, record)),
             "CCR_PROFILE": str(record["profile"]),
+            "CCR_READ_ONLY": "1" if record.get("read_only") else "0",
         }
     )
+    if record.get("permission_mode"):
+        # Keep nested ccr commands on the mode this child was started with.
+        environment["CCR_PERMISSION_MODE"] = str(record["permission_mode"])
     if extra:
         environment.update(extra)
     return environment
@@ -1418,6 +1447,66 @@ def print_result(data, as_json: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# permission modes
+
+
+def validate_permission_mode(mode: str) -> str:
+    if mode not in PERMISSION_MODES:
+        raise CcrError(
+            f"Unknown permission mode {mode!r}; choose from "
+            + ", ".join(PERMISSION_MODES)
+        )
+    return mode
+
+
+def env_permission_mode() -> str | None:
+    return os.environ.get("CCR_PERMISSION_MODE") or None
+
+
+def resolve_permission_mode(
+    explicit: str | None, fallback: str | None = None
+) -> str:
+    """Pick the child mode; an explicit flag wins over the router's mode."""
+    mode = explicit if explicit is not None else (fallback or DEFAULT_PERMISSION_MODE)
+    return validate_permission_mode(mode)
+
+
+def permission_mode_from_args(
+    cli_args: list[str], default: str = DEFAULT_PERMISSION_MODE
+) -> tuple[str, list[str]]:
+    """Resolve the router's starting mode from its Claude arguments."""
+    dangerous = False
+    explicit = None
+    remaining: list[str] = []
+    index = 0
+    while index < len(cli_args):
+        arg = cli_args[index]
+        if arg == "--":
+            remaining.extend(cli_args[index:])
+            break
+        if arg == "--yolo":
+            raise CcrError("--yolo is no longer a flag; run `ccr yolo` instead")
+        if arg == "--permission-mode":
+            if index + 1 >= len(cli_args):
+                raise CcrError("--permission-mode requires a value")
+            explicit = cli_args[index + 1]
+            remaining.extend(cli_args[index : index + 2])
+            index += 2
+            continue
+        if arg.startswith("--permission-mode="):
+            explicit = arg.split("=", 1)[1]
+        if arg == "--dangerously-skip-permissions":
+            dangerous = True
+        remaining.append(arg)
+        index += 1
+    if explicit is not None:
+        return validate_permission_mode(explicit), remaining
+    if dangerous:
+        return YOLO_PERMISSION_MODE, remaining
+    return validate_permission_mode(default), remaining
+
+
+# ---------------------------------------------------------------------------
 # commands
 
 
@@ -1426,10 +1515,26 @@ def cmd_router(
     home: str | None = None,
     source: str | None = None,
     config_dir: str | None = None,
+    yolo: bool = False,
 ) -> int:
     if os.environ.get("CCR_CHILD") or os.environ.get("CCR_ROUTER"):
         raise CcrError("ccr router cannot run inside a ccr session")
     leading, cli_args = take_all_common(cli_args)
+    option_end = cli_args.index("--") if "--" in cli_args else len(cli_args)
+    option_args = cli_args[:option_end]
+    if yolo:
+        if any(
+            arg == "--permission-mode" or arg.startswith("--permission-mode=")
+            for arg in option_args
+        ):
+            raise CcrError("ccr yolo does not accept --permission-mode")
+        mode = YOLO_PERMISSION_MODE
+    else:
+        mode, cli_args = permission_mode_from_args(
+            cli_args, env_permission_mode() or DEFAULT_PERMISSION_MODE
+        )
+        option_end = cli_args.index("--") if "--" in cli_args else len(cli_args)
+        option_args = cli_args[:option_end]
     home = home or leading.get("home")
     source = source or leading.get("source")
     config_dir = config_dir or leading.get("config_dir")
@@ -1488,6 +1593,12 @@ def cmd_router(
     ]
     if model and "--model" not in cli_args:
         argv += ["--model", model]
+    has_mode = any(
+        arg == "--permission-mode" or arg.startswith("--permission-mode=")
+        for arg in option_args
+    )
+    if not has_mode and "--dangerously-skip-permissions" not in option_args:
+        argv += ["--permission-mode", mode]
     argv += cli_args
     environment = merged_environment(config)
     environment["CLAUDE_CONFIG_DIR"] = str(claude_config)
@@ -1495,12 +1606,26 @@ def cmd_router(
         {
             "CCR_HOME": str(state),
             "CCR_USER_CONFIG_DIR": str(config),
+            # The router's Bash tool passes this to `ccr spawn`, so children
+            # start in the same mode unless they pass --permission-mode.
+            "CCR_PERMISSION_MODE": mode,
             "CCR_PROFILE": "router",
             "CCR_SOURCE_DIR": str(root.resolve()),
         }
     )
     os.execvpe(argv[0], argv, environment)
     return 0
+
+
+def cmd_yolo(args) -> int:
+    """Start the router with the bypassPermissions mode."""
+    return cmd_router(
+        list(args.cli_args),
+        home=getattr(args, "home", None),
+        source=getattr(args, "source", None),
+        config_dir=getattr(args, "config_dir", None),
+        yolo=True,
+    )
 
 
 def cmd_spawn(args) -> int:
@@ -1533,6 +1658,9 @@ def cmd_spawn(args) -> int:
     if tier not in {"hard", "medium", "easy"}:
         raise CcrError("--tier must be hard, medium, or easy")
     model = model_for(manifest, tier, args.model)
+    permission_mode = resolve_permission_mode(
+        args.permission_mode, env_permission_mode()
+    )
     claude_config = prepare_ccr_config(config, state)
     settings_file = state / "profiles" / name / "settings.json"
     prompt_file = state / "profiles" / name / "prompt.md"
@@ -1563,7 +1691,8 @@ def cmd_spawn(args) -> int:
         "mcp_file": str(mcp_file),
         "claude_config_dir": str(claude_config),
         "task": prompt.strip().splitlines()[0][:200],
-        "permission_mode": args.permission_mode or profile.get("permissionMode"),
+        "permission_mode": permission_mode,
+        "read_only": bool(args.read_only),
     }
 
     session_settings = Path(record["settings_file"])
@@ -1583,8 +1712,7 @@ def cmd_spawn(args) -> int:
     ]
     if model:
         argv += ["--model", model]
-    if record["permission_mode"]:
-        argv += ["--permission-mode", record["permission_mode"]]
+    argv += ["--permission-mode", record["permission_mode"]]
     if args.worktree is not None:
         argv += ["--worktree"]
         if args.worktree:
@@ -1597,7 +1725,9 @@ def cmd_spawn(args) -> int:
         print_result({"argv": argv, "record": record}, args.json)
         return 0
     context.mkdir(parents=True, exist_ok=True, mode=0o700)
-    session_settings = write_session_settings(settings_file, context, record)
+    session_settings = write_session_settings(
+        settings_file, context, record, read_only=args.read_only
+    )
     if not args.no_preflight:
         preflight(
             session_settings, profile.get("plugins", []), config, claude_config
@@ -1646,6 +1776,7 @@ def cmd_spawn(args) -> int:
             "profile": name,
             "tier": tier,
             "model": model,
+            "read_only": record["read_only"],
             "cwd": record["cwd"],
             "context": record["context_file"],
             "claude_config_dir": record.get("claude_config_dir"),
@@ -1685,7 +1816,10 @@ def cmd_send(args) -> int:
         if not profile_settings.is_file():
             raise CcrError(f"Session {record['id']} settings are missing; re-spawn it")
         settings_file = write_session_settings(
-            profile_settings, context_path(state, record).parent, record
+            profile_settings,
+            context_path(state, record).parent,
+            record,
+            read_only=bool(record.get("read_only")),
         )
         record["settings_file"] = str(settings_file)
     if not prompt_file.is_file() or not mcp_file.is_file():
@@ -2274,6 +2408,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ccr",
         description="Profile router and context keeper for Claude Code.",
+        epilog=(
+            "With no subcommand, ccr starts the router in auto permission mode. "
+            "Run 'ccr yolo' to start it in bypassPermissions mode. Child "
+            "sessions inherit the router's mode by default."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"ccr {VERSION}")
     add_common(parser)
@@ -2292,6 +2431,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("cli_args", nargs=argparse.REMAINDER)
     p.set_defaults(func=cmd_router)
 
+    p = sub.add_parser(
+        "yolo", help="start the router with permissions bypassed"
+    )
+    p.add_argument("cli_args", nargs=argparse.REMAINDER)
+    p.set_defaults(func=cmd_yolo)
+
     p = sub.add_parser("spawn", help="dispatch a background child session")
     add_common(p)
     p.add_argument("--profile", required=True)
@@ -2300,6 +2445,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cwd")
     p.add_argument("--model")
     p.add_argument("--permission-mode")
+    p.add_argument(
+        "--read-only",
+        action="store_true",
+        help="deny Edit, Write, and NotebookEdit in the child",
+    )
     p.add_argument("--prompt")
     p.add_argument("--prompt-file")
     p.add_argument("--worktree", nargs="?", const="")
@@ -2400,6 +2550,8 @@ def _dispatch(argv: list[str]) -> int:
         return 0
     if argv[0] == "router":
         return cmd_router(argv[1:], **leading)
+    if argv[0] == "yolo":
+        return cmd_router(argv[1:], yolo=True, **leading)
     if argv[0] not in SUBCOMMANDS:
         if not argv[0].startswith("-"):
             raise CcrError(

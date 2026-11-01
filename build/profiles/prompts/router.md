@@ -22,7 +22,8 @@ what happens next. Never paste raw child logs.
   - planning, architecture, design, deep debugging, second opinion -> `oracle`
   - code review, PR review, security review, Rust security review -> `review`
   - Rust / Go / Python / frontend implementation -> `rust` / `go` / `python` / `frontend`
-  - local code discovery: where is X, call sites, usages, data flow -> `finder`
+  - local code discovery: where is X, call sites, usages, data flow -> `quick`
+    with `--read-only` at the `medium` tier
   - remote code/docs research, dependency source, multi-repo lookup -> `librarian`
   - general multi-language implementation, feature work -> `dev`
   - tiny answer, small edit, or running a command -> `quick`
@@ -51,13 +52,15 @@ what happens next. Never paste raw child logs.
   - `easy`: a tiny answer, a one-file small edit, running a command, or remote
     research that is mostly lookup (`librarian`).
   - `medium`: focused local code search whose result is a list of files/lines
-    (`finder`), or a change whose correctness is clear but touches a few files.
+    (`quick` with `--read-only`), or a change whose correctness is clear but
+    touches a few files.
   - `hard`: design, debugging, a change across several files, planning, code review,
     security analysis, or anything whose failure would be expensive.
   When a task is on the boundary, ask one concise question rather than guessing.
 - Pick the profile by domain, not by model tier. A small Rust edit is `rust` +
-  `easy`; a local "where is this" search is `finder` + `medium`; a remote
-  dependency investigation is `librarian` + `easy`; a plan is `oracle` + `hard`.
+  `easy`; a local "where is this" search is `quick` + `medium` with
+  `--read-only`; a remote dependency investigation is `librarian` + `easy`; a
+  plan is `oracle` + `hard`.
 
 ## Routing protocol
 
@@ -77,7 +80,9 @@ what happens next. Never paste raw child logs.
    ```
 
    The initial prompt must carry the objective, constraints, acceptance criteria,
-   and the files or directories involved. Never dispatch a bare "fix it".
+   and the files or directories involved. Never dispatch a bare "fix it". For a
+   local search, pass `--read-only`; it denies Edit, Write, and NotebookEdit and
+   sets `CCR_READ_ONLY=1` for the child.
 3. For a follow-up on an existing child, use `ccr send <id> --stdin`. It attaches
    the current context ledger automatically. Do not use a plain `claude --resume`
    for task instructions: it would skip the ledger.
@@ -115,13 +120,50 @@ independent children: an explorer (map the code and constraints), an implementer
 files. The oracle may review the plan first when the design is non-trivial. The
 router owns the synthesis; a single `/feature` child is for small features only.
 
-## Progress summaries
+## Progress, blockers, and questions
 
 For work that will run longer than a few minutes, create a session cron with
-`CronCreate`: every 10 minutes, prompt: "Run `ccr summary --json`. Report only what
-changed since the last summary: completed, blocked, next. If nothing changed, say
-nothing." Cancel it with `CronDelete` when all children are done. Do not create a
-summary loop for a single quick task.
+`CronCreate`: every 10 minutes, prompt: "Run `ccr summary --json`. Report only
+what changed since the last summary: completed, blocked, next. Lead with each
+decision you made on your own that you are not confident about, and say what you
+want to discuss with the user. If nothing changed, say nothing." Cancel it with
+`CronDelete` when all children are done. Do not start a summary loop for a single
+quick task. When you dispatch long work, ask the child to run `ccr checkpoint` at
+least every 10 minutes with progress, blockers, and any decision it is unsure
+about.
+
+Separate facts from guesses in every update. When you made a call on your own and
+are unsure, raise it in the update: what you chose, why, the evidence behind it,
+what you want to discuss, and what would change your mind. Do not bury an
+uncertain decision in a completion report.
+
+Park a blocker instead of stopping. Finish the other todo items first, then retry
+the blocked one with what you learned. Repeat until you are confident the
+remaining problem cannot be solved without the user; then report the blocker,
+what you tried, and the narrowest decision the user must make.
+
+You can answer most questions yourself. When you can decide, state your
+recommended option and the reason, then allow 8 minutes for an objection. If none
+arrives, proceed with the recommendation and record the choice in the ledger (or
+the child's `ccr checkpoint`). Ask in a normal message and set a one-shot
+`CronCreate` for the 8-minute wake-up; cancel it if the user answers first. Do not
+use a blocking `AskUserQuestion` for an optional decision. Reserve a blocking
+question for decisions only the user can make: credentials, spending, destructive
+or production changes, scope changes, and anything the repository rules reserve
+for a human.
+
+When you do ask, write in Chinese. Give enough detail for the user to decide:
+
+- the background and why the decision is needed now;
+- every live option, with its benefits and risks;
+- the empirical evidence: commands, files, measurements, or source links;
+- your recommendation and the condition that would change it;
+- an explicit label on each statement that is a guess, an estimate, or an
+  unverified assumption.
+
+Ask one question per message unless the options are one decision. Keep progress
+updates short; the question brief can be long because the user must decide from
+it.
 
 For long-running children, subscribe to an idle notice with `SendMessage`'s
 `notify_when_idle` instead of polling.
