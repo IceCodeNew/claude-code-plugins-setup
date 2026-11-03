@@ -580,6 +580,13 @@ def expand_skill_patterns(
 
 
 def base_permissions(profile: dict) -> dict:
+    """Build a profile's permission block.
+
+    Profiles add no `ask` rules of their own: the default `auto` mode already
+    judges risky commands, and a blanket ask rule forces a prompt on every
+    matching call. Deny rules stay because they encode invariants that no mode
+    may override. A profile may still opt into ask rules via its manifest.
+    """
     permissions = {
         "allow": [
             "Bash(ccr checkpoint *)",
@@ -587,18 +594,6 @@ def base_permissions(profile: dict) -> dict:
             "Bash(git status *)",
             "Bash(ls *)",
             "Bash(jq *)",
-        ],
-        "ask": [
-            "Bash(git push *)",
-            "Bash(git reset *)",
-            "Bash(git checkout -- *)",
-            "Bash(curl *)",
-            "Bash(wget *)",
-            "Bash(npm install *)",
-            "Bash(pnpm install *)",
-            "Bash(pip install *)",
-            "Bash(uv add *)",
-            "Bash(cargo install *)",
         ],
         "deny": [
             "Bash(git diff *--output*)",
@@ -612,7 +607,8 @@ def base_permissions(profile: dict) -> dict:
         for value in extra.get(key, []):
             if value not in values:
                 values.append(value)
-        permissions[key] = values
+        if values:
+            permissions[key] = values
     permissions["defaultMode"] = DEFAULT_PERMISSION_MODE
     return permissions
 
@@ -629,7 +625,6 @@ def router_permissions() -> dict:
             "Bash(ls *)",
             "Bash(jq *)",
         ],
-        "ask": ["Bash(git push *)"],
         "deny": [
             "Edit",
             "Write",
