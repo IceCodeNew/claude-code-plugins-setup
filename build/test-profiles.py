@@ -359,6 +359,18 @@ class Profiles(unittest.TestCase):
                 self.settings(name)["permissions"]["defaultMode"], "auto", name
             )
 
+    def test_profiles_do_not_force_manual_approval(self):
+        # Profiles defer git/network/install commands to the auto mode
+        # classifier; an inherited ask rule would prompt on every match.
+        router = json.loads(
+            (self.state / "runtime/router-settings.json").read_text()
+        )
+        self.assertNotIn("ask", router["permissions"])
+        for name in self.manifest["profiles"]:
+            permissions = self.settings(name)["permissions"]
+            self.assertNotIn("ask", permissions, name)
+            self.assertTrue(permissions["deny"], name)
+
     def test_each_profile_enables_only_its_plugins(self):
         for name, profile in self.manifest["profiles"].items():
             settings = self.settings(name)

@@ -554,6 +554,8 @@ python3 -B /tmp/test-profiles.py
 ccr doctor --strict
 jq -e '.permissions.defaultMode == "auto"' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
 jq -e '.permissions.defaultMode == "auto"' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
+jq -e '.permissions | has("ask") | not' "${HOME}/.local/state/cc-router/runtime/router-settings.json"
+jq -e '.permissions | has("ask") | not' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == true' "${HOME}/.local/state/cc-router/profiles/review/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/dev/settings.json"
 jq -e '.enabledPlugins["fp-check@trailofbits"] == false' "${HOME}/.local/state/cc-router/profiles/rust/settings.json"
