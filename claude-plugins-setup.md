@@ -622,7 +622,9 @@ ccr
 
 本地只读搜索用 `ccr spawn --profile quick --tier medium --read-only`；`--read-only` 在子会话 settings 中加入 Edit、Write、NotebookEdit 的 deny，并设置 `CCR_READ_ONLY=1`。
 
-进度汇报和提问规则（每 10 分钟汇报、卡点重试、8 分钟等待、中文提问格式）统一维护在 [router prompt](build/profiles/prompts/router.md) 的 “Progress, blockers, and questions” 一节；README 只引用这一处。
+路由为每个子会话设任务超时（`easy` 15 分钟、`medium` 30 分钟、`hard` 60 分钟），每 10 分钟检查全部子会话；20 分钟没有新输出或进展时先提醒，再停下并缩小范围重派。两个期限都是软限制，停下前要核对会话 JSONL、ledger 和后台任务输出。进度汇报和提问规则（每 10 分钟汇报、超时判断、卡点重试、8 分钟等待、中文提问格式）统一维护在 [router prompt](build/profiles/prompts/router.md) 的 “Timeouts and drift” 和 “Progress, blockers, and questions” 两节；README 只引用这一处。
+
+`dev`、`rust`、`go`、`python`、`frontend`、`quick` 和 `review` 在完成设计、实现或修复后做消融：逐个移除新增的抽象和设计，只保留当前需求需要的部分。所有配置的交付物都按最终状态自包含地写，不提草稿、版本、评审轮次或被取代的决定。
 
 进入子会话后可以调用 `~/.claude/commands/` 下的命令，例如 `/plan`、`/research`、`/feature`、`/review`、`/security-check`。路由保留命令可见，但 prompt 要求实现类命令分发给对应配置；只有只读的 `/plan`、`/research` 可按用户明确要求原地执行。命令来源见 [build/profiles/commands](build/profiles/commands)。
 

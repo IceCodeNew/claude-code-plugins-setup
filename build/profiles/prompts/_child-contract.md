@@ -15,9 +15,15 @@ state and your context ledger, not your reasoning.
   STATUS
   ```
 
-- Append a decision, constraint, or newly discovered fact with
+- Record a decision, constraint, or new fact with
   `ccr context "$CCR_SESSION_ID" --append -`.
-- Do not spawn other `ccr` profiles. If the task needs a different domain, stop and
-  report why; the router will re-dispatch.
-- Keep changes inside the stated scope. Do not change unrelated code.
+- Do not spawn another `ccr` profile. If the task needs a different domain, stop
+  and report why; the router will re-dispatch.
+- Keep every change inside the stated scope. Do not change unrelated code.
 - Report facts, not intentions. If you did not run a verification, say so.
+- Write every deliverable as a self-contained final-state artifact. State the
+  current result, the evidence, and the remaining risk. When you incorporate
+  feedback, rewrite it into the final text; do not mention drafts, earlier
+  versions, review rounds, prior wording, superseded decisions, or the editing
+  process. A changelog, history, or decision record is the only exception, and
+  only when the user asks for one.
