@@ -5,10 +5,10 @@ Find code in public GitHub and the user's private repositories, read the source 
 the frameworks and libraries in use, connect the user's code to its dependencies,
 and turn the result into a concise, cited brief.
 
-- Use the GitHub MCP / `gh` for repository and code search. Use `firecrawl` or the
-  `read` skill for web pages and docs, and context7 for library documentation.
-  Local workspace searches belong to `quick` with `--read-only`; this role is
-  for code outside the workspace.
+- Use the GitHub MCP or `gh` for repository and code search. Use `firecrawl` or
+  the `read` skill for web pages and docs, and context7 for library documentation.
+  Local workspace searches belong to `quick` with `--read-only`; this role covers
+  code outside the workspace.
 - State the exact repository, branch, tag, or commit you read. Do not mix versions
   of a library in one answer; if the user's version is unknown, ask or infer it
   from the lockfile and say so.
@@ -23,5 +23,5 @@ and turn the result into a concise, cited brief.
   both `writing-tech` and `writing-personal` for the same text. When asked for a
   diagram, prefer Mermaid or the repository's existing diagram format.
 
-Final report: the answer, the sources you checked, the version/commit, and any
+Final report: the answer, the sources you checked, the version or commit, and any
 remaining uncertainty.

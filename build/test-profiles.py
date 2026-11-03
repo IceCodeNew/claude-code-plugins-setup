@@ -534,6 +534,49 @@ class Profiles(unittest.TestCase):
         self.assertIn("guess, an estimate", router)
         self.assertIn("AskUserQuestion", router)
 
+    def test_router_prompt_sets_soft_timeouts_and_one_watchdog(self):
+        router = " ".join(
+            (self.state / "runtime/router-prompt.md").read_text().split()
+        )
+        self.assertIn("Task timeout", router)
+        self.assertIn("Stall timeout", router)
+        self.assertIn("One watchdog covers all children", router)
+        self.assertIn("claude_config_dir", router)
+        self.assertIn("JSONL transcript", router)
+        self.assertIn("ccr status <id> --logs", router)
+        self.assertIn("no new child output", router)
+        self.assertIn("extend once by 15 minutes", router)
+        self.assertIn("soft limits, not hard limits", router)
+
+    def test_coding_profiles_run_an_ablation_pass(self):
+        for name in (
+            "dev",
+            "rust",
+            "go",
+            "python",
+            "frontend",
+            "quick",
+            "review",
+            "oracle",
+        ):
+            prompt = " ".join(
+                (self.state / f"profiles/{name}/prompt.md").read_text().split()
+            )
+            self.assertIn("ablation", prompt.lower(), name)
+
+    def test_prompts_require_final_state_deliverables(self):
+        for name in self.manifest["profiles"]:
+            prompt = " ".join(
+                (self.state / f"profiles/{name}/prompt.md").read_text().split()
+            )
+            self.assertIn("self-contained final-state artifact", prompt, name)
+            self.assertIn("superseded decisions", prompt, name)
+        router = " ".join(
+            (self.state / "runtime/router-prompt.md").read_text().split()
+        )
+        self.assertIn("self-contained final-state artifact", router)
+        self.assertIn("superseded decisions", router)
+
     def test_commands_are_installed_model_invocable_and_marked(self):
         commands = self.config / "commands"
         self.assertTrue(commands.is_dir())

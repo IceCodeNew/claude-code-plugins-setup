@@ -37,7 +37,9 @@ ccr summary         # 汇总各子会话进度
 
 本地只读搜索用 `ccr spawn --profile quick --tier medium --read-only`；子会话会禁用 Edit、Write 和 NotebookEdit。
 
-路由每 10 分钟汇总一次进度。不确定的自主决定、卡点的重试顺序、8 分钟等待规则和提问格式统一写在[路由 prompt](build/profiles/prompts/router.md) 的 “Progress, blockers, and questions” 一节。
+路由每 10 分钟汇总一次进度，并检查每个子会话的任务超时和停滞超时。任务超时按 `easy` 15 分钟、`medium` 30 分钟、`hard` 60 分钟起步；停滞超时统一为 20 分钟没有新输出或进展。两个期限都是软限制：停下之前要核对会话 JSONL、ledger 和后台任务输出。不确定的自主决定、卡点的重试顺序、8 分钟等待规则和提问格式统一写在[路由 prompt](build/profiles/prompts/router.md) 的 “Timeouts and drift” 与 “Progress, blockers, and questions” 两节。
+
+`dev`、`rust`、`go`、`python`、`frontend`、`quick` 和 `review` 在完成设计、实现或修复后做消融：逐个移除新增的抽象和设计，只保留当前需求需要的部分。所有配置的交付物都按最终状态自包含地写，不提草稿、版本、评审轮次或被取代的决定。
 
 路由只加载记忆、运维和会话编排插件。`quick` 保留 fff 搜索、ripwire、单文件编辑和命令执行能力，其余角色按需启用实现、审查或写作插件。模型档位见[路由配置](claude-plugins-setup.md#48-路由配置与-ccr)，插件与写作组合见[插件归属](claude-plugins-setup.md#31-插件归属)。
 
