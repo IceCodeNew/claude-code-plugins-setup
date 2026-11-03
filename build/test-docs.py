@@ -29,7 +29,7 @@ def anchors(text):
 class UserDocumentation(unittest.TestCase):
     def test_user_local_document_links_resolve(self):
         """Given a documentation link / When followed / Then its file and heading exist."""
-        for name in ("README.md", "claude-plugins-setup.md"):
+        for name in ("README.md", "claude-plugins-setup.md", "CONTRIBUTING.md"):
             document = ROOT / name
             for target in re.findall(r"\]\(([^\s)]+)\)", document.read_text()):
                 if re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", target):
@@ -50,6 +50,15 @@ class UserDocumentation(unittest.TestCase):
         self.assertLess(build, login)
         self.assertLess(login, text.index("## 功能范围"))
         self.assertIn("claude-plugins-setup.md#5-登录与认证", text)
+
+    def test_contributor_procedures_live_in_contributing(self):
+        """Given the README / When a maintainer looks for checks / Then it points to CONTRIBUTING."""
+        readme = (ROOT / "README.md").read_text()
+        contributing = (ROOT / "CONTRIBUTING.md").read_text()
+        self.assertIn("[CONTRIBUTING.md](CONTRIBUTING.md)", readme)
+        self.assertIn("python3 -B build/test-profiles.py", contributing)
+        self.assertIn("docker buildx build --target smoke", contributing)
+        self.assertNotIn("python3 -B build/test-profiles.py", readme)
 
     def test_user_alias_instructions_match_the_image(self):
         """Given manual or image setup / When rm is configured / Then both use one reminder."""

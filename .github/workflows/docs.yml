@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "README.md"
+      - "CONTRIBUTING.md"
       - "claude-plugins-setup.md"
       - "build/Dockerfile"
       - "build/test-docs.py"
@@ -14,6 +15,7 @@ on:
       - master
     paths:
       - "README.md"
+      - "CONTRIBUTING.md"
       - "claude-plugins-setup.md"
       - "build/Dockerfile"
       - "build/test-docs.py"
