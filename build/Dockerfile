@@ -364,7 +364,7 @@ EOF
 
 FROM node AS opencli
 # renovate: datasource=npm packageName=@jackwener/opencli
-ARG OPENCLI_VERSION=2.0.2
+ARG OPENCLI_VERSION=2.0.3
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
