@@ -337,7 +337,7 @@ EOF
 
 FROM mise AS claude
 # renovate: datasource=npm packageName=@anthropic-ai/claude-code
-ARG CLAUDE_CODE_VERSION=2.1.328
+ARG CLAUDE_CODE_VERSION=2.1.329
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=sigstore-cache,target=/home/nonroot/.cache/sigstore-rust,uid=65532,gid=65532 \
@@ -351,7 +351,7 @@ EOF
 
 FROM node AS codex
 # renovate: datasource=npm packageName=@openai/codex
-ARG CODEX_VERSION=0.170.0
+ARG CODEX_VERSION=0.171.0
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
@@ -377,7 +377,7 @@ EOF
 
 FROM node AS cf
 # renovate: datasource=npm packageName=cf
-ARG CF_VERSION=1.0.0-rc.1
+ARG CF_VERSION=1.0.0-rc.2
 RUN --mount=type=cache,id=mise-cache,target=/home/nonroot/.cache/mise,uid=65532,gid=65532 \
     --mount=type=cache,id=mise-downloads-cache,target=/home/nonroot/.local/share/mise/downloads,uid=65532,gid=65532 \
     --mount=type=cache,id=npm-cache,target=/home/nonroot/.npm,uid=65532,gid=65532 \
